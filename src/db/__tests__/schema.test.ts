@@ -1,16 +1,11 @@
 /**
  * @jest-environment node
  */
-import path from 'path';
+import { eq, sql } from 'drizzle-orm';
 
-import Database from 'better-sqlite3';
-import { eq } from 'drizzle-orm';
-import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
-
+import type { AppDb } from '../jobRepo';
 import * as schema from '../schema';
-
-const MIGRATIONS = path.resolve(__dirname, '../../../drizzle');
+import { createTestDb } from '../testDb';
 
 const TABLES = [
   'jobs',
@@ -111,15 +106,7 @@ const line: typeof schema.payslipLines.$inferInsert = {
   amountPence: 4166,
 };
 
-function setup(): { sqlite: Database.Database; db: BetterSQLite3Database<typeof schema> } {
-  const sqlite = new Database(':memory:');
-  sqlite.pragma('foreign_keys = ON');
-  const db = drizzle(sqlite, { schema });
-  migrate(db, { migrationsFolder: MIGRATIONS });
-  return { sqlite, db };
-}
-
-function seed(db: BetterSQLite3Database<typeof schema>): void {
+function seed(db: AppDb): void {
   db.insert(schema.jobs).values(job).run();
   db.insert(schema.premiumRules).values(rule).run();
   db.insert(schema.shiftTemplates).values(template).run();
@@ -131,22 +118,16 @@ function seed(db: BetterSQLite3Database<typeof schema>): void {
 }
 
 describe('db schema', () => {
-  let sqlite: Database.Database;
-  let db: BetterSQLite3Database<typeof schema>;
+  let db: AppDb;
 
   beforeEach(() => {
-    ({ sqlite, db } = setup());
-  });
-
-  afterEach(() => {
-    sqlite.close();
+    db = createTestDb();
   });
 
   it('applies the migrations and creates all 8 tables', () => {
-    const names = sqlite
-      .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
-      .all()
-      .map((r) => (r as { name: string }).name);
+    const names = db
+      .all<{ name: string }>(sql`SELECT name FROM sqlite_master WHERE type = 'table'`)
+      .map((r) => r.name);
     expect(names).toEqual(expect.arrayContaining(TABLES));
   });
 
