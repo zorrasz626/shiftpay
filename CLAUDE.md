@@ -19,6 +19,7 @@ Android-first Expo (React Native) + TypeScript app for UK shift workers: stores 
 - `src/engine` imports nothing from React, Expo or the DB. Jest enforces 100% coverage on `src/engine/**`.
 - expo-sqlite does not run in Jest: repositories are tested against `better-sqlite3` with the same Drizzle schema.
 - Drizzle migrations in Expo need the `.sql` metro extension and the `inline-import` babel plugin.
+- Android build on this Windows machine: `ANDROID_HOME` isn't set globally (pass it per command), and reanimated's C++ build needs CMake ≥3.31 (`cmake.dir` in the git-ignored `android/local.properties`); SDK CMake 3.22.1's ninja breaks on paths >260 chars even with LongPathsEnabled. Give the emulator ≥4 GB RAM or the app ANRs at startup.
 
 ## Commands
 - Start: `npm start`
