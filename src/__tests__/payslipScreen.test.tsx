@@ -198,7 +198,8 @@ describe('Payslip screen', () => {
     await fireEvent.press(button('Add line'));
     await fireEvent.changeText(field('Amount (£)'), '1.234');
     expect(shownMessages()).toEqual([]);
-    expect(screen.queryByText(/^Lines add up to/)).toBeNull();
+    // No valid total yet: a placeholder holds the hint row's space.
+    expect(screen.getByText('Lines add up to —')).toBeTruthy();
 
     expect(button('Save').props.accessibilityState.disabled).toBe(false);
     await fireEvent.press(button('Save'));
@@ -220,6 +221,30 @@ describe('Payslip screen', () => {
 
     expect(mockBack).not.toHaveBeenCalled();
     expect(stored()).toEqual([]);
+  });
+
+  it('keeps the lines hint row while an amount is mid-entry, and drops it with no lines', async () => {
+    await seed();
+    await render(<PayslipScreen />);
+    const hints = () => screen.queryAllByText(/^Lines add up to/);
+
+    expect(hints()).toHaveLength(0);
+    await fireEvent.press(button('Add line'));
+    expect(screen.getByText('Lines add up to —')).toBeTruthy();
+    await fireEvent.changeText(field('Label'), 'Basic pay');
+    await fireEvent.changeText(field('Amount (£)'), '447');
+    expect(screen.getByText('Lines add up to £447.00')).toBeTruthy();
+    // "447." does not parse yet: the last valid hint stays, so nothing below moves.
+    await fireEvent.changeText(field('Amount (£)'), '447.');
+    expect(hints().map((h) => h.props.children)).toEqual(['Lines add up to £447.00']);
+    await fireEvent.changeText(field('Amount (£)'), '447.5');
+    expect(screen.getByText('Lines add up to £447.50')).toBeTruthy();
+
+    await fireEvent.press(button('Remove line'));
+    expect(hints()).toHaveLength(0);
+    // A fresh line starts from the placeholder, not the old total.
+    await fireEvent.press(button('Add line'));
+    expect(hints().map((h) => h.props.children)).toEqual(['Lines add up to —']);
   });
 
   it('ignores an all-blank line and saves a refund', async () => {

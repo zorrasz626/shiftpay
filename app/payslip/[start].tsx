@@ -42,6 +42,9 @@ type TopField = Exclude<PayslipFormField, 'lineLabel' | 'lineHours' | 'lineAmoun
 
 const EMPTY_LINE: PayslipLineFormValues = { label: '', hoursText: '', amountText: '' };
 
+/** Shown in the lines hint row before any line has a valid total. */
+const LINES_HINT_PENDING = 'Lines add up to —';
+
 function PayslipForm({
   initial,
   payslipId,
@@ -65,6 +68,7 @@ function PayslipForm({
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [lastLinesHint, setLastLinesHint] = useState<string | null>(null);
 
   const errors = payslipFormErrors(values);
   // Errors show only once Save was tried. Showing them as soon as a field had
@@ -121,12 +125,19 @@ function PayslipForm({
 
   const linesTotal = linesTotalPence(values);
   const gross = parsePoundsToPence(values.grossText);
-  const linesHint =
+  const totalHint =
     linesTotal === null
       ? null
       : gross !== null && gross >= 0 && gross !== linesTotal
         ? `Lines add up to ${formatPence(linesTotal)}, gross is ${formatPence(gross)}`
         : `Lines add up to ${formatPence(linesTotal)}`;
+  // While an amount is mid-entry ("447.") the total is null; keep the last
+  // valid hint (or a placeholder) so the hint row keeps its space and the
+  // fields below don't jump. No row at all when there are no lines.
+  const hasLines = values.lines.length > 0;
+  if (totalHint !== null && totalHint !== lastLinesHint) setLastLinesHint(totalHint);
+  if (!hasLines && lastLinesHint !== null) setLastLinesHint(null);
+  const linesHint = hasLines ? (totalHint ?? lastLinesHint ?? LINES_HINT_PENDING) : null;
   const suggestedNet = suggestedNetPence(values);
 
   return (

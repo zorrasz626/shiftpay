@@ -85,8 +85,8 @@ describe('planReminders', () => {
         id: 'shift-s1-2026-11-03T06:00:00.000Z',
         shiftId: 's1',
         fireAt: '2026-11-03T06:00:00.000Z',
-        title: 'Warehouse shift in 1 h',
-        body: 'Starts 07:00 on Tue 3 Nov',
+        title: 'Shift in 1 h',
+        body: 'Warehouse · starts 07:00 on Tue 3 Nov',
       },
     ]);
   });
@@ -149,7 +149,7 @@ describe('planReminders', () => {
   it('labels the lead time and falls back for an unknown job', () => {
     const start = localToInstant('2026-11-03', '07:00');
     const [known] = planReminders({ shifts: [shift('s1', start)], jobNames, now: NOW, leadMinutes: 90 });
-    expect(known.title).toBe('Warehouse shift in 1 h 30 min');
+    expect(known.title).toBe('Shift in 1 h 30 min');
     const [unknown] = planReminders({
       shifts: [shift('s2', start, { jobId: 'gone' })],
       jobNames,
@@ -157,14 +157,15 @@ describe('planReminders', () => {
       leadMinutes: 30,
     });
     expect(unknown.title).toBe('Shift in 30 min');
+    expect(unknown.body).toBe('Starts 07:00 on Tue 3 Nov');
   });
 
   it('marks overtime and uses the start date for overnight shifts', () => {
     const start = localToInstant('2026-11-05', '22:00');
     const s = { ...shift('n1', start, { overtimeFlag: true }), end: localToInstant('2026-11-06', '06:00') };
     const [r] = planReminders({ shifts: [s], jobNames, now: NOW, leadMinutes: 120 });
-    expect(r.body).toBe('Starts 22:00 on Thu 5 Nov (overtime)');
-    expect(r.title).toBe('Warehouse shift in 2 h');
+    expect(r.body).toBe('Warehouse · starts 22:00 on Thu 5 Nov (overtime)');
+    expect(r.title).toBe('Shift in 2 h');
   });
 
   it('formats London local time in BST, not the device zone', () => {
@@ -172,7 +173,7 @@ describe('planReminders', () => {
     const [r] = planReminders({ shifts: [shift('s1', start)], jobNames, now: '2026-06-01T00:00:00.000Z', leadMinutes: 15 });
     expect(start).toBe('2026-07-01T05:15:00.000Z');
     expect(r.fireAt).toBe('2026-07-01T05:00:00.000Z');
-    expect(r.body).toBe('Starts 06:15 on Wed 1 Jul');
+    expect(r.body).toBe('Warehouse · starts 06:15 on Wed 1 Jul');
   });
 
   describe('BST boundaries (lead in real minutes)', () => {
@@ -185,7 +186,7 @@ describe('planReminders', () => {
       const [r] = planReminders({ shifts: [shift('s1', start)], jobNames, now, leadMinutes: 120 });
       // Two real hours earlier is 23:30 GMT on the 28th (wall clock would say 00:30).
       expect(r.fireAt).toBe('2026-03-28T23:30:00.000Z');
-      expect(r.body).toBe('Starts 02:30 on Sun 29 Mar');
+      expect(r.body).toBe('Warehouse · starts 02:30 on Sun 29 Mar');
     });
 
     it('fall back: 01:30 local on 25 Oct 2026 (both readings)', () => {
@@ -199,9 +200,9 @@ describe('planReminders', () => {
         leadMinutes: 60,
       });
       expect(result.map((r) => [r.shiftId, r.fireAt, r.body])).toEqual([
-        ['bst', '2026-10-24T23:30:00.000Z', 'Starts 01:30 on Sun 25 Oct'],
+        ['bst', '2026-10-24T23:30:00.000Z', 'Warehouse · starts 01:30 on Sun 25 Oct'],
         // One real hour before 01:30 GMT is 01:30 BST (00:30Z), not 00:30 wall clock.
-        ['gmt', '2026-10-25T00:30:00.000Z', 'Starts 01:30 on Sun 25 Oct'],
+        ['gmt', '2026-10-25T00:30:00.000Z', 'Warehouse · starts 01:30 on Sun 25 Oct'],
       ]);
     });
   });

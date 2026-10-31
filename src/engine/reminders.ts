@@ -67,12 +67,14 @@ export function formatLeadMinutes(minutes: number): string {
   return m === 0 ? `${h} h` : `${h} h ${m} min`;
 }
 
-function reminderBody(shift: Shift): string {
+/** "Warehouse · starts 07:00 on Tue 3 Nov" or, without a job name, "Starts 07:00 on Tue 3 Nov". */
+function reminderBody(shift: Shift, jobName: string | undefined): string {
   const local = instantToLocal(shift.start);
   const [, month, day] = local.date.split('-').map(Number);
   const dateLabel = `${DAY_SHORT[local.dayOfWeek]} ${day} ${MONTH_NAMES[month - 1].slice(0, 3)}`;
   const overtime = shift.overtimeFlag ? ' (overtime)' : '';
-  return `Starts ${local.time} on ${dateLabel}${overtime}`;
+  const when = `${local.time} on ${dateLabel}${overtime}`;
+  return jobName ? `${jobName} · starts ${when}` : `Starts ${when}`;
 }
 
 /** Reminders for planned shifts whose fire time is still in the future, soonest first. */
@@ -94,8 +96,8 @@ export function planReminders(input: PlanRemindersInput): PlannedReminder[] {
       id: `shift-${shift.id}-${fireAt}`,
       shiftId: shift.id,
       fireAt,
-      title: jobName ? `${jobName} shift in ${lead}` : `Shift in ${lead}`,
-      body: reminderBody(shift),
+      title: `Shift in ${lead}`,
+      body: reminderBody(shift, jobName),
     };
   });
 }

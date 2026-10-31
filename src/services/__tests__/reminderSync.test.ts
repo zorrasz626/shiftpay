@@ -72,7 +72,8 @@ describe('syncReminders', () => {
     expect(expected).toHaveLength(2);
     expect(notifier.calls).toEqual(['ensurePermission', 'cancelAll', ...expected.map((r) => `schedule:${r.id}`)]);
     expect(notifier.scheduled).toEqual(expected);
-    expect(notifier.scheduled[0].title).toBe('Warehouse shift in 1 h');
+    expect(notifier.scheduled[0].title).toBe('Shift in 1 h');
+    expect(notifier.scheduled[0].body).toMatch(/^Warehouse · starts /);
   });
 });
 
@@ -128,7 +129,7 @@ describe('startReminderSync', () => {
     useJobsStore.setState({ jobs: [{ ...job, name: 'Depot' }] });
     await jest.advanceTimersByTimeAsync(REMINDER_SYNC_DEBOUNCE_MS * 4);
     expect(notifier.calls.filter((c) => c === 'ensurePermission')).toHaveLength(1);
-    expect(notifier.scheduled.at(-1)?.title).toBe('Depot shift in 1 h');
+    expect(notifier.scheduled.at(-1)?.body).toMatch(/^Depot · starts /);
     stop();
   });
 
