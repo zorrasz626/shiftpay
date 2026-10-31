@@ -14,7 +14,7 @@ import type { DateRange } from './shiftPay';
 import { addLocalDays, localDaysBetween } from './time';
 import type { Job, LocalDate, PayFrequency, PeriodBreakdown, PremiumRule, RuleBreakdown, Shift } from './types';
 
-const FIXED_LENGTH_DAYS: Record<Exclude<PayFrequency, 'monthly'>, number> = {
+export const FIXED_LENGTH_DAYS: Record<Exclude<PayFrequency, 'monthly'>, number> = {
   weekly: 7,
   fortnightly: 14,
   four_weekly: 28,
@@ -34,7 +34,8 @@ function cutoffIn(index: number, cutoffDay: number): LocalDate {
   return `${last.slice(0, 8)}${String(day).padStart(2, '0')}`;
 }
 
-function monthlyPeriod(date: LocalDate, cutoffDay: number): DateRange {
+/** The monthly period containing `date` for `cutoffDay` (1-31, clamped to each month's length). */
+export function monthlyPeriod(date: LocalDate, cutoffDay: number): DateRange {
   const index = Number(date.slice(0, 4)) * 12 + Number(date.slice(5, 7)) - 1;
   const thisCutoff = cutoffIn(index, cutoffDay);
   const endIndex = date <= thisCutoff ? index : index + 1;
