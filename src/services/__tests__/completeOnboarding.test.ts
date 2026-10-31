@@ -8,6 +8,7 @@ import { getSetting } from '../../db/settingsRepo';
 import { createShift, listShifts } from '../../db/shiftRepo';
 import { createTestDb } from '../../db/testDb';
 import { useJobsStore } from '../../store/jobsStore';
+import { useRulesStore } from '../../store/rulesStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useShiftsStore } from '../../store/shiftsStore';
 import { TODAY, job, resetStores, shift } from '../../store/testFixtures';
@@ -71,6 +72,8 @@ describe('completeOnboarding', () => {
     expect(stored.every((s) => s.id.startsWith(`${input.rota.pattern.id}:`))).toBe(true);
 
     expect(useJobsStore.getState().jobs[0].overtimePremiumMode).toBe('stack');
+    expect(useRulesStore.getState().rules).toEqual(await listPremiumRules(db, 'job-1'));
+    expect(useRulesStore.getState().rules).toHaveLength(2);
     expect(useSettingsStore.getState().values[ONBOARDING_COMPLETE_KEY]).toBe(true);
     expect(useShiftsStore.getState().range).toEqual(materialiseWindow(TODAY));
     expect(useShiftsStore.getState().shifts).toHaveLength(151);
@@ -100,6 +103,7 @@ describe('completeOnboarding', () => {
     expect(await listShiftTemplates(db, 'job-1')).toEqual([second.rota.template]);
     expect(await listRotaPatterns(db, 'job-1')).toEqual([second.rota.pattern]);
     expect(await listPremiumRules(db, 'job-1')).toEqual(second.rules);
+    expect(useRulesStore.getState().rules).toEqual(second.rules);
     const updated = await getJob(db, 'job-1');
     expect(updated?.bankHolidayRegion).toBe('northern-ireland');
     expect(updated?.overtimePremiumMode).toBe('replace');

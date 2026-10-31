@@ -32,6 +32,7 @@ import {
 import { shifts } from '../db/schema';
 import { setSetting } from '../db/settingsRepo';
 import { useJobsStore } from '../store/jobsStore';
+import { useRulesStore } from '../store/rulesStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { useShiftsStore } from '../store/shiftsStore';
 import { materialiseShifts, materialiseWindow } from './materialise';
@@ -76,6 +77,7 @@ export async function completeOnboarding(db: AppDb, input: CompleteOnboardingInp
   await materialiseShifts(db, today);
 
   await useJobsStore.getState().load(db);
+  await useRulesStore.getState().load(db);
   await useSettingsStore.getState().load(db);
   await useShiftsStore.getState().load(db, materialiseWindow(today));
 }
