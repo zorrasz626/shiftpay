@@ -8,6 +8,8 @@ import { job, resetStores, shift } from '../store/testFixtures';
 import { darkColors, lightColors } from '../theme/tokens';
 
 let mockScheme: 'light' | 'dark' = 'light';
+// The day sheet imports the app db; expo-sqlite does not run in Jest.
+jest.mock('../db/client', () => ({ db: require('../db/testDb').createTestDb() }));
 jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({
   __esModule: true,
   default: () => mockScheme,

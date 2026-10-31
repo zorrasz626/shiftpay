@@ -14,6 +14,7 @@ import {
   monthRange,
 } from '../../src/engine/calendarMonth';
 import { instantToLocal } from '../../src/engine/time';
+import { DaySheet } from '../../src/features/calendar/DaySheet';
 import { useJobsStore } from '../../src/store/jobsStore';
 import { useShiftsStore } from '../../src/store/shiftsStore';
 import { type Colors, tabularNums } from '../../src/theme/tokens';
@@ -82,7 +83,9 @@ function ShiftCode({ kind, code }: { kind: CalendarShiftKind; code: string }) {
 }
 
 function dayLabel(day: CalendarDay, column: number): string {
-  const parts = [`${WEEKDAY_NAMES[column]} ${day.dayOfMonth} ${MONTH_NAMES[Number(day.date.slice(5, 7)) - 1]}`];
+  const parts = [
+    `${WEEKDAY_NAMES[column]} ${day.dayOfMonth} ${MONTH_NAMES[Number(day.date.slice(5, 7)) - 1]}`,
+  ];
   if (day.isToday) parts.push('today');
   if (day.isBankHoliday) parts.push('bank holiday');
   if (day.shifts.length === 0) parts.push('no shifts');
@@ -90,16 +93,29 @@ function dayLabel(day: CalendarDay, column: number): string {
   return parts.join(', ');
 }
 
-function DayCell({ day, column }: { day: CalendarDay; column: number }) {
+function DayCell({
+  day,
+  column,
+  onPress,
+}: {
+  day: CalendarDay;
+  column: number;
+  onPress: (date: string) => void;
+}) {
   const { colors, typography, spacing } = useTheme();
   const extra = day.shifts.length - MAX_CODES;
   const numberColor = day.isToday ? colors.onSignal : day.inMonth ? colors.ink : colors.inkMuted;
   return (
-    <View
+    <Pressable
       testID={`day-${day.date}`}
-      accessible
+      accessibilityRole="button"
       accessibilityLabel={dayLabel(day, column)}
-      style={[styles.cell, { borderTopColor: colors.line, paddingVertical: spacing.xs }]}
+      onPress={() => onPress(day.date)}
+      style={({ pressed }) => [
+        styles.cell,
+        { borderTopColor: colors.line, paddingVertical: spacing.xs },
+        pressed && styles.pressed,
+      ]}
     >
       <View
         testID={day.isToday ? 'today-marker' : undefined}
@@ -116,9 +132,11 @@ function DayCell({ day, column }: { day: CalendarDay; column: number }) {
         <ShiftCode key={s.id} kind={s.kind} code={s.code} />
       ))}
       {extra > 0 && (
-        <Text style={[typography.caption, styles.nums, { color: colors.inkMuted }]}>{`+${extra}`}</Text>
+        <Text
+          style={[typography.caption, styles.nums, { color: colors.inkMuted }]}
+        >{`+${extra}`}</Text>
       )}
-    </View>
+    </Pressable>
   );
 }
 
@@ -162,6 +180,7 @@ export default function CalendarScreen() {
   const today = instantToLocal(new Date().toISOString()).date;
   const current = parseYearMonth(today);
   const [shown, setShown] = useState<YearMonth>(current);
+  const [openDate, setOpenDate] = useState<string | null>(null);
 
   const grid = useMemo(
     () =>
@@ -196,6 +215,9 @@ export default function CalendarScreen() {
   const go = (n: number) => setShown(addMonths(shown.year, shown.month, n));
   const onCurrent = shown.year === current.year && shown.month === current.month;
   const muted = [typography.caption, { color: colors.inkMuted }];
+  // Pull the grid half into the 16dp gutter so cells stay >=48dp wide on a
+  // 360dp phone: (360 - 2*16) / 7 = 46.9dp, (360 - 2*8) / 7 = 49.1dp.
+  const grid48 = { marginHorizontal: -spacing.sm };
 
   return (
     <Screen title="Calendar" scroll>
@@ -215,7 +237,7 @@ export default function CalendarScreen() {
         </View>
       )}
 
-      <View style={[styles.row, { marginTop: spacing.md }]}>
+      <View style={[styles.row, grid48, { marginTop: spacing.md }]}>
         {WEEKDAYS.map((d) => (
           <Text key={d} style={[muted, styles.weekday]}>
             {d}
@@ -223,9 +245,9 @@ export default function CalendarScreen() {
         ))}
       </View>
       {grid.weeks.map((week) => (
-        <View key={week[0].date} style={styles.row}>
+        <View key={week[0].date} style={[styles.row, grid48]}>
           {week.map((day, column) => (
-            <DayCell key={day.date} day={day} column={column} />
+            <DayCell key={day.date} day={day} column={column} onPress={setOpenDate} />
           ))}
         </View>
       ))}
@@ -245,6 +267,7 @@ export default function CalendarScreen() {
       <View style={{ height: spacing.xl }} />
 
       <Disclaimer />
+      <DaySheet date={openDate} onClose={() => setOpenDate(null)} />
     </Screen>
   );
 }
@@ -253,7 +276,13 @@ const styles = StyleSheet.create({
   nums: { fontVariant: [...tabularNums] },
   header: { flexDirection: 'row', alignItems: 'center' },
   title: { flex: 1, textAlign: 'center' },
-  nav: { minWidth: 48, minHeight: 48, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  nav: {
+    minWidth: 48,
+    minHeight: 48,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   pressed: { opacity: 0.8 },
   today: { alignSelf: 'flex-start' },
   row: { flexDirection: 'row' },
