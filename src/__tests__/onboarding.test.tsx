@@ -3,6 +3,7 @@ import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import { StyleSheet, Text } from 'react-native';
 
 import OnboardingJobScreen from '../../app/onboarding/job';
+import OnboardingRotaScreen from '../../app/onboarding/rota';
 import { DISCLAIMER } from '../components/Disclaimer';
 import { Screen } from '../components/Screen';
 import { MESSAGES, useOnboardingStore } from '../store/onboardingStore';
@@ -48,6 +49,54 @@ describe('onboarding step 1', () => {
     expect(enabled).toBeEnabled();
     await fireEvent.press(enabled);
     expect(mockPush).toHaveBeenCalledWith('/onboarding/pay');
+  });
+});
+
+describe('onboarding step 3', () => {
+  beforeEach(() => {
+    useOnboardingStore.getState().reset();
+    mockPush.mockClear();
+  });
+
+  it('pre-fills the first day on and accepts the default rota', async () => {
+    await render(<OnboardingRotaScreen />);
+    expect(screen.getByText('Step 3 of 4')).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Your rota' })).toBeTruthy();
+    expect(screen.getByText(DISCLAIMER)).toBeTruthy();
+    expect(useOnboardingStore.getState().firstDayOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(screen.getByText('Next 14 days')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled();
+    expect(screen.queryByText('Mon')).toBeNull();
+  });
+
+  it('shows day chips for "Pick your days" and blocks Continue until one is picked', async () => {
+    await render(<OnboardingRotaScreen />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Pick your days' }));
+    for (const day of ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']) {
+      expect(screen.getByRole('button', { name: day })).toBeTruthy();
+    }
+    expect(screen.getByText(MESSAGES.pickDays)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Wed' }));
+    expect(screen.queryByText(MESSAGES.pickDays)).toBeNull();
+    const enabled = screen.getByRole('button', { name: 'Continue' });
+    expect(enabled).toBeEnabled();
+    await fireEvent.press(enabled);
+    expect(mockPush).toHaveBeenCalledWith('/onboarding/premiums');
+  });
+
+  it('labels overnight shifts and blocks bad times', async () => {
+    await render(<OnboardingRotaScreen />);
+    await fireEvent.changeText(screen.getByLabelText('Shift starts (HH:MM)'), '22:00');
+    await fireEvent.changeText(screen.getByLabelText('Shift ends (HH:MM)'), '06:00');
+    expect(screen.getByText('Ends next day')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled();
+
+    await fireEvent.changeText(screen.getByLabelText('Shift ends (HH:MM)'), '6am');
+    expect(screen.getByText(MESSAGES.time)).toBeTruthy();
+    expect(screen.queryByText('Next 14 days')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled();
   });
 });
 

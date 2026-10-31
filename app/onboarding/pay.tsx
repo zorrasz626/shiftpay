@@ -44,7 +44,7 @@ export default function OnboardingPayScreen() {
     try {
       const today = instantToLocal(new Date().toISOString()).date;
       await draft.finishPayStep(db, today);
-      router.replace('/(tabs)');
+      router.push('/onboarding/rota');
     } catch {
       setSaveError("Your job couldn't be saved. Check the details and try again.");
       setSaving(false);

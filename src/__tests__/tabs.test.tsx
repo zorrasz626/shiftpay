@@ -1,13 +1,18 @@
 import { render, screen } from '@testing-library/react-native';
 import { renderRouter } from 'expo-router/testing-library';
 import type { ComponentType } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 
 import TabsLayout from '../../app/(tabs)/_layout';
 import CalendarScreen from '../../app/(tabs)/calendar';
 import HomeScreen from '../../app/(tabs)/index';
 import PayScreen from '../../app/(tabs)/pay';
 import SettingsScreen from '../../app/(tabs)/settings';
+import { ONBOARDING_COMPLETE_KEY } from '../services/completeOnboarding';
+import { useJobsStore } from '../store/jobsStore';
+import { useOnboardingStore } from '../store/onboardingStore';
+import { useSettingsStore } from '../store/settingsStore';
+import { job, resetStores } from '../store/testFixtures';
 import { darkColors, fontFamily, lightColors, type Colors } from '../theme/tokens';
 
 let mockScheme: 'light' | 'dark' = 'light';
@@ -63,6 +68,7 @@ describe.each(themes)('tab screens in %s theme', (scheme, colors) => {
   });
 
   it('opens on Home with the four labelled tabs', async () => {
+    useSettingsStore.setState({ values: { [ONBOARDING_COMPLETE_KEY]: true } });
     await renderRouter(
       {
         '(tabs)/_layout': TabsLayout,
@@ -80,5 +86,32 @@ describe.each(themes)('tab screens in %s theme', (scheme, colors) => {
     }
     expect(styleOf(screen.getByText('Home')).color).toBe(colors.ink);
     expect(styleOf(screen.getByText('Pay')).color).toBe(colors.inkMuted);
+  });
+});
+
+describe('first-run routing', () => {
+  const routes = {
+    '(tabs)/_layout': TabsLayout,
+    '(tabs)/index': HomeScreen,
+    'onboarding/job': () => <Text>Onboarding step 1</Text>,
+  };
+
+  beforeEach(() => {
+    resetStores();
+    useOnboardingStore.getState().reset();
+  });
+
+  it('opens onboarding step 1 until onboarding is complete', async () => {
+    await renderRouter(routes, { initialUrl: '/' });
+    expect(await screen.findByText('Onboarding step 1')).toBeTruthy();
+    expect(screen.queryByText('ShiftPay')).toBeNull();
+    expect(useOnboardingStore.getState().jobId).toBeUndefined();
+  });
+
+  it('resumes with the job saved at step 2 instead of starting a new one', async () => {
+    useJobsStore.setState({ jobs: [job] });
+    await renderRouter(routes, { initialUrl: '/' });
+    expect(await screen.findByText('Onboarding step 1')).toBeTruthy();
+    expect(useOnboardingStore.getState()).toMatchObject({ jobId: job.id, name: job.name });
   });
 });

@@ -1,9 +1,12 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { Tabs } from 'expo-router';
-import type { ComponentProps } from 'react';
+import { Redirect, Tabs } from 'expo-router';
+import { type ComponentProps, useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useJobsStore } from '../../src/store/jobsStore';
+import { needsOnboarding, useOnboardingStore } from '../../src/store/onboardingStore';
+import { useSettingsStore } from '../../src/store/settingsStore';
 import { useTheme } from '../../src/theme/useTheme';
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -40,6 +43,23 @@ function icon(name: IconName) {
 export default function TabsLayout() {
   const { colors, typography, spacing } = useTheme();
   const insets = useSafeAreaInsets();
+  const onboarding = needsOnboarding(useSettingsStore((s) => s.values));
+  const existingJob = useJobsStore((s) => s.jobs[0]);
+  const draftJobId = useOnboardingStore((s) => s.jobId);
+
+  // First run, or onboarding quit after step 2: resume with the saved job so
+  // step 2 updates it instead of creating another (free tier = 1 job).
+  useEffect(() => {
+    if (!onboarding || existingJob === undefined) return;
+    const draft = useOnboardingStore.getState();
+    if (draft.jobId === undefined) draft.loadFromJob(existingJob);
+  }, [onboarding, existingJob]);
+
+  if (onboarding) {
+    // Wait one render for loadFromJob, so step 1 opens already prefilled.
+    const ready = existingJob === undefined || draftJobId !== undefined;
+    return ready ? <Redirect href="/onboarding/job" /> : null;
+  }
 
   return (
     <Tabs
@@ -71,7 +91,10 @@ export default function TabsLayout() {
         options={{ title: 'Calendar', tabBarIcon: icon('calendar-month-outline') }}
       />
       <Tabs.Screen name="pay" options={{ title: 'Pay', tabBarIcon: icon('cash') }} />
-      <Tabs.Screen name="settings" options={{ title: 'Settings', tabBarIcon: icon('cog-outline') }} />
+      <Tabs.Screen
+        name="settings"
+        options={{ title: 'Settings', tabBarIcon: icon('cog-outline') }}
+      />
     </Tabs>
   );
 }
