@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react-native';
 
 import HomeScreen from '../../app/(tabs)/index';
 
+jest.mock('../db/client', () => ({ db: require('../db/testDb').createTestDb() }));
 jest.mock(
   'react-native-safe-area-context',
   () => require('react-native-safe-area-context/jest/mock').default,

@@ -1,4 +1,4 @@
-import { holidaySummary } from '../holiday';
+import { holidaySummary, holidayYearRange } from '../holiday';
 import { addLocalDays, localToInstant } from '../time';
 import type { Job, LocalDate, Shift, ShiftStatus, WallClockTime } from '../types';
 
@@ -211,5 +211,42 @@ describe('holidaySummary: paid hours', () => {
     // 28 -> 29 Mar 2026: clocks go forward, 22:00-06:00 is 7h.
     const s = holidaySummary(job, [shift('2026-03-28', 'holiday', '22:00', '06:00')], '2026-03-30');
     expect(s.taken).toBe(7);
+  });
+});
+
+describe('holidayYearRange', () => {
+  it("today on or after this year's anniversary: this year to the day before next", () => {
+    expect(holidayYearRange(job, '2026-04-01')).toEqual({ start: '2026-04-01', end: '2027-03-31' });
+    expect(holidayYearRange(job, '2026-10-31')).toEqual({ start: '2026-04-01', end: '2027-03-31' });
+  });
+
+  it("today before this year's anniversary: the year that started last year", () => {
+    expect(holidayYearRange(job, '2027-03-31')).toEqual({ start: '2026-04-01', end: '2027-03-31' });
+    expect(holidayYearRange(job, '2026-01-15')).toEqual({ start: '2025-04-01', end: '2026-03-31' });
+  });
+
+  it('29 Feb start clamps to 28 Feb in non-leap years', () => {
+    const leapJob = { holidayYearStart: '2024-02-29' };
+    expect(holidayYearRange(leapJob, '2026-03-01')).toEqual({
+      start: '2026-02-28',
+      end: '2027-02-27',
+    });
+    expect(holidayYearRange(leapJob, '2027-06-01')).toEqual({
+      start: '2027-02-28',
+      end: '2028-02-28',
+    });
+    expect(holidayYearRange(leapJob, '2028-02-29')).toEqual({
+      start: '2028-02-29',
+      end: '2029-02-27',
+    });
+  });
+
+  it('matches holidaySummary', () => {
+    const s = holidaySummary(job, [], '2026-02-10');
+    expect(holidayYearRange(job, '2026-02-10')).toEqual({ start: s.yearStart, end: s.yearEnd });
+  });
+
+  it('throws on an invalid today', () => {
+    expect(() => holidayYearRange(job, '2026-13-01')).toThrow();
   });
 });

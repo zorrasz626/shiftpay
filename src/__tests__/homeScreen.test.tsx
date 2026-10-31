@@ -1,8 +1,11 @@
-import { act, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 
 import HomeScreen from '../../app/(tabs)/index';
 import { bankHolidays } from '../config/bankHolidays';
+import { db } from '../db/client';
+import { createJob, deleteJob } from '../db/jobRepo';
+import { createShift } from '../db/shiftRepo';
 import { homeSummary } from '../engine/homeSummary';
 import { formatPence } from '../engine/money';
 import type { PremiumRule } from '../engine/types';
@@ -12,6 +15,11 @@ import { useShiftsStore } from '../store/shiftsStore';
 import { job, resetStores, shift } from '../store/testFixtures';
 import { darkColors, lightColors } from '../theme/tokens';
 
+jest.mock('../db/client', () => ({ db: require('../db/testDb').createTestDb() }));
+const mockPush = jest.fn();
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
 let mockScheme: 'light' | 'dark' = 'light';
 jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({
   __esModule: true,
@@ -58,8 +66,10 @@ function seed(withShifts = true): void {
   useShiftsStore.setState({ shifts: withShifts ? shifts : [], loaded: true });
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   resetStores();
+  await deleteJob(db, job.id); // cascades shifts
+  mockPush.mockClear();
   mockScheme = 'light';
   jest.useFakeTimers({ now: new Date(NOW) });
 });
@@ -114,6 +124,21 @@ describe('Home screen', () => {
       jest.advanceTimersByTime(60_000);
     });
     expect(screen.getByText('On now, ends 07:00')).toBeTruthy();
+  });
+
+  it('shows remaining holiday from the DB and opens the Holiday screen', async () => {
+    seed();
+    await createJob(db, job);
+    // Taken 2 Apr and booked 25 Jun, both only in the DB; 7.5 h paid each.
+    await createShift(db, shift('2026-04-02', { id: 'h-taken', status: 'holiday' }));
+    await createShift(db, shift('2026-06-25', { id: 'h-booked', status: 'holiday' }));
+
+    await render(<HomeScreen />);
+
+    expect(await screen.findByText('195 h left')).toBeTruthy();
+    expect(screen.getByText('Taken 7.5 h · Booked 7.5 h')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: /^Holiday: 195 h left/ }));
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/holiday' });
   });
 
   it('says no shifts coming up when there are none', async () => {

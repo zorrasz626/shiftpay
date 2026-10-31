@@ -1,12 +1,16 @@
+import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { AppState, StyleSheet, Text, View } from 'react-native';
+import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { bankHolidays } from '../../src/config/bankHolidays';
 import { BigNumber } from '../../src/components/BigNumber';
 import { Card } from '../../src/components/Card';
 import { Disclaimer } from '../../src/components/Disclaimer';
 import { Screen } from '../../src/components/Screen';
+import { formatHolidayHours, holidayView } from '../../src/engine/holidayView';
 import { homeSummary } from '../../src/engine/homeSummary';
+import type { Job } from '../../src/engine/types';
+import { useHolidaySummary } from '../../src/features/holiday/useHolidaySummary';
 import { homeView } from '../../src/features/home/homeView';
 import { useJobsStore } from '../../src/store/jobsStore';
 import { useRulesStore } from '../../src/store/rulesStore';
@@ -31,6 +35,40 @@ function useNow(): string {
     };
   }, []);
   return now;
+}
+
+/** Remaining holiday and taken / booked hours; opens the Holiday screen. */
+function HolidayCard({ job }: { job: Job }) {
+  const { colors, typography, spacing } = useTheme();
+  const router = useRouter();
+  const summary = useHolidaySummary(job);
+  if (summary === null) return null;
+
+  const view = holidayView(summary, job.holidayMode);
+  const usage = `Taken ${formatHolidayHours(summary.taken)} · Booked ${formatHolidayHours(summary.booked)}`;
+  return (
+    <>
+      <Pressable
+        testID="holiday-card"
+        accessibilityRole="button"
+        accessibilityLabel={`Holiday: ${view.remainingLabel}. ${usage}`}
+        onPress={() => router.push({ pathname: '/holiday' })}
+        style={({ pressed }) => pressed && styles.pressed}
+      >
+        <Card title="Holiday">
+          <Text style={[typography.bodyLarge, styles.nums, { color: colors.ink }]}>
+            {view.remainingLabel}
+          </Text>
+          <Text
+            style={[typography.body, styles.nums, { color: colors.ink, marginTop: spacing.sm }]}
+          >
+            {usage}
+          </Text>
+        </Card>
+      </Pressable>
+      <View style={{ height: spacing.lg }} />
+    </>
+  );
 }
 
 export default function HomeScreen() {
@@ -88,6 +126,8 @@ export default function HomeScreen() {
       </Card>
       <View style={gap} />
 
+      <HolidayCard job={job} />
+
       <Disclaimer />
     </Screen>
   );
@@ -95,4 +135,5 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   nums: { fontVariant: [...tabularNums] },
+  pressed: { opacity: 0.8 },
 });

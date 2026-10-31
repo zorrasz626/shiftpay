@@ -1,7 +1,7 @@
 /**
  * Settings tab: the job (name and base rate, opens Job settings), the pay
- * rules (opens the rule list), the rota (opens the rota editor) and the
- * disclaimer. Free tier = one job, one rota pattern.
+ * rules (opens the rule list), the rota (opens the rota editor), holiday
+ * (opens Holiday settings) and the disclaimer. Free tier = one job, one rota pattern.
  */
 import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -10,7 +10,7 @@ import { Card } from '../../src/components/Card';
 import { Disclaimer } from '../../src/components/Disclaimer';
 import { Screen } from '../../src/components/Screen';
 import { formatPence } from '../../src/engine/money';
-import type { RotaPattern } from '../../src/engine/types';
+import type { Job, RotaPattern } from '../../src/engine/types';
 import { useJobsStore } from '../../src/store/jobsStore';
 import { useRotaStore } from '../../src/store/rotaStore';
 import { useRulesStore } from '../../src/store/rulesStore';
@@ -36,6 +36,13 @@ function rotaLabel(pattern: RotaPattern | undefined): string {
   ).length;
   if (changes <= 2) return `${on} on ${off} off · ${cycle}`;
   return `${on} ${on === 1 ? 'shift' : 'shifts'} · ${cycle}`;
+}
+
+/** "210 h a year", or "Accrual (12.07%)". */
+function holidayLabel(job: Job): string {
+  return job.holidayMode === 'accrual'
+    ? 'Accrual (12.07%)'
+    : `${job.holidayEntitlementHours} h a year`;
 }
 
 /** A tappable settings row, at least 48dp tall. */
@@ -107,6 +114,14 @@ export default function SettingsScreen() {
               label={rotaLabel(pattern)}
               detail="Shift types and cycle"
               onPress={() => router.push({ pathname: '/settings/rota' })}
+            />
+          </Card>
+          <View style={gap} />
+          <Card title="Holiday">
+            <SettingsRow
+              label="Holiday settings"
+              detail={holidayLabel(job)}
+              onPress={() => router.push({ pathname: '/settings/holiday' })}
             />
           </Card>
           <View style={gap} />

@@ -15,7 +15,7 @@ import { addLocalDays, localDaysBetween, minutesBetween } from './time';
 import type { HolidaySummary, Job, LocalDate, Shift } from './types';
 
 /** Statutory accrual rate for irregular-hours workers (5.6 weeks / 46.4 weeks). */
-const ACCRUAL_RATE = 0.1207;
+export const ACCRUAL_RATE = 0.1207;
 
 /** The anniversary of `start` in `year`, clamped to the month's length (29 Feb -> 28 Feb). */
 function anniversaryIn(start: LocalDate, year: number): LocalDate {
@@ -31,14 +31,28 @@ function paidMinutes(shift: Shift): number {
   return Math.max(0, minutesBetween(shift.start, shift.end) - shift.unpaidBreakMinutes);
 }
 
-/** Holiday position for the holiday year containing `today`. */
-export function holidaySummary(job: Job, shifts: Shift[], today: LocalDate): HolidaySummary {
+/**
+ * First and last day (both inclusive) of the holiday year containing `today`.
+ * Throws on an invalid `today`.
+ */
+export function holidayYearRange(
+  job: Pick<Job, 'holidayYearStart'>,
+  today: LocalDate,
+): { start: LocalDate; end: LocalDate } {
   const checked = addLocalDays(today, 0); // throws on an invalid date
   const year = Number(checked.slice(0, 4));
   const thisYears = anniversaryIn(job.holidayYearStart, year);
   const startYear = checked < thisYears ? year - 1 : year;
-  const yearStart = anniversaryIn(job.holidayYearStart, startYear);
-  const yearEnd = addLocalDays(anniversaryIn(job.holidayYearStart, startYear + 1), -1);
+  return {
+    start: anniversaryIn(job.holidayYearStart, startYear),
+    end: addLocalDays(anniversaryIn(job.holidayYearStart, startYear + 1), -1),
+  };
+}
+
+/** Holiday position for the holiday year containing `today`. */
+export function holidaySummary(job: Job, shifts: Shift[], today: LocalDate): HolidaySummary {
+  const checked = addLocalDays(today, 0); // throws on an invalid date
+  const { start: yearStart, end: yearEnd } = holidayYearRange(job, checked);
 
   let takenMinutes = 0;
   let bookedMinutes = 0;
