@@ -41,8 +41,8 @@ const themes: [label: 'light' | 'dark', colors: Colors][] = [
   ['dark', darkColors],
 ];
 
+// Placeholder tabs only; Calendar is covered by calendarScreen.test.tsx.
 const screens: [title: string, Screen: ComponentType][] = [
-  ['Calendar', CalendarScreen],
   ['Pay', PayScreen],
   ['Settings', SettingsScreen],
 ];
