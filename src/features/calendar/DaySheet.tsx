@@ -3,6 +3,7 @@
  * shifts with one-tap status actions and an overtime toggle, and adds or
  * edits manual shifts. Pattern shifts can be cancelled but never deleted.
  */
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -99,10 +100,12 @@ function SegmentButton({
 function ShiftCard({
   shift,
   onEdit,
+  onBreakdown,
   onError,
 }: {
   shift: StoredShift;
   onEdit: () => void;
+  onBreakdown: () => void;
   onError: (message: string | null) => void;
 }) {
   const { colors, typography, spacing, radius } = useTheme();
@@ -195,6 +198,9 @@ function ShiftCard({
             {shift.overtimeFlag ? 'On' : 'Off'}
           </Text>
         </Pressable>
+        <View style={{ marginTop: spacing.md }}>
+          <Button label="Pay breakdown" variant="secondary" onPress={onBreakdown} />
+        </View>
         {shift.source === 'manual' && (
           <View style={[styles.row, { gap: spacing.sm, marginTop: spacing.md }]}>
             <View style={styles.grow}>
@@ -216,6 +222,7 @@ function ShiftCard({
 
 export function DaySheet({ date, onClose }: DaySheetProps) {
   const { colors, typography, spacing, radius } = useTheme();
+  const router = useRouter();
   const job = useJobsStore((s) => s.jobs[0]);
   const allShifts = useShiftsStore((s) => s.shifts);
   const [mode, setMode] = useState<Mode>({ kind: 'list' });
@@ -225,6 +232,12 @@ export function DaySheet({ date, onClose }: DaySheetProps) {
     setMode({ kind: 'list' });
     setError(null);
     onClose();
+  };
+
+  // The sheet is a Modal: close it first, then open the shift's breakdown.
+  const openBreakdown = (id: string) => {
+    close();
+    router.push({ pathname: '/shift/[id]', params: { id } });
   };
 
   if (date === null || job === undefined) return null;
@@ -270,6 +283,7 @@ export function DaySheet({ date, onClose }: DaySheetProps) {
                     key={s.id}
                     shift={s}
                     onEdit={() => setMode({ kind: 'edit', shift: s })}
+                    onBreakdown={() => openBreakdown(s.id)}
                     onError={setError}
                   />
                 ))}
