@@ -8,7 +8,11 @@
  *
  * fixed: entitled = `holidayEntitlementHours`; accrued = entitled x days
  * elapsed (year start through today, inclusive) / days in the year.
- * accrual: accrued = entitled = 12.07% of `worked` hours dated on or before today.
+ * accrual: accrued = entitled = 12.07% of the hours worked so far: `worked`
+ * shifts dated on or before today, plus `planned` shifts dated before today
+ * (rota shifts stay `planned` after they end; with only a LocalDate, a planned
+ * shift dated before today counts as ended, including an overnight one that
+ * finishes today). Sick, holiday and cancelled hours never accrue.
  */
 import { clearNoise } from './money';
 import { addLocalDays, localDaysBetween, minutesBetween } from './time';
@@ -62,7 +66,10 @@ export function holidaySummary(job: Job, shifts: Shift[], today: LocalDate): Hol
     if (shift.status === 'holiday') {
       if (shift.date < checked) takenMinutes += paidMinutes(shift);
       else bookedMinutes += paidMinutes(shift);
-    } else if (shift.status === 'worked' && shift.date <= checked) {
+    } else if (
+      (shift.status === 'worked' && shift.date <= checked) ||
+      (shift.status === 'planned' && shift.date < checked)
+    ) {
       workedMinutes += paidMinutes(shift);
     }
   }

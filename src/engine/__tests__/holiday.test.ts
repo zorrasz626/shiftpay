@@ -113,11 +113,10 @@ describe('holidaySummary: accrual mode', () => {
     expect(s.remaining).toBe(12.07);
   });
 
-  it('sick, planned, cancelled and holiday hours are not accrued', () => {
+  it('sick, cancelled and holiday hours are not accrued', () => {
     const shifts = [
       shift('2026-04-06', 'worked', '08:00', '18:00'), // 10h
       shift('2026-04-07', 'sick'),
-      shift('2026-04-08', 'planned'),
       shift('2026-04-09', 'cancelled'),
       shift('2026-04-10', 'holiday'), // 8h taken
     ];
@@ -125,6 +124,19 @@ describe('holidaySummary: accrual mode', () => {
     expect(s.accrued).toBe(1.207);
     expect(s.taken).toBe(8);
     expect(s.remaining).toBe(-6.793);
+  });
+
+  it('ended planned (rota) shifts accrue; planned today or later do not', () => {
+    const shifts = [
+      shift('2026-04-06', 'planned', '08:00', '18:00'), // 10h, ended
+      shift('2026-04-30', 'planned', '22:00', '06:00'), // 8h, overnight into today: counts
+      shift('2026-05-01', 'planned', '08:00', '18:00'), // today: not yet
+      shift('2026-05-02', 'planned', '08:00', '18:00'), // future
+      shift('2026-04-07', 'sick'),
+      shift('2026-04-08', 'cancelled'),
+    ];
+    const s = holidaySummary(accrualJob, shifts, '2026-05-01');
+    expect(s.accrued).toBe(2.1726);
   });
 
   it('worked shifts after today are not accrued; today is', () => {

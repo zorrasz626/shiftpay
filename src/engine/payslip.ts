@@ -18,7 +18,11 @@ const PENCE_TOLERANCE = 100;
 /** Inclusive hours tolerance. */
 const HOURS_TOLERANCE = 0.25;
 
-/** Sorted unique local dates of the segments that earned pence under `ruleId`. */
+/**
+ * Sorted unique dates of the shifts with any segment that earned pence under
+ * `ruleId`. A shift's date is its first segment's local date (the segment
+ * starting at shift.start), so a night shift lists its start date only.
+ */
 function ruleDates(breakdown: PeriodBreakdown, ruleId: string): LocalDate[] {
   const dates = new Set<LocalDate>();
   for (const shift of breakdown.shifts) {
@@ -30,7 +34,10 @@ function ruleDates(breakdown: PeriodBreakdown, ruleId: string): LocalDate[] {
           : segment.overtimeRuleId === ruleId
             ? segment.overtimePence
             : 0;
-      if (pence > 0) dates.add(segment.localDate);
+      if (pence > 0) {
+        dates.add(shift.segments[0].localDate);
+        break;
+      }
     }
   }
   return [...dates].sort();

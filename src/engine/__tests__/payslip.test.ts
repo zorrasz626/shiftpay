@@ -229,6 +229,35 @@ describe('diffPayslip causes', () => {
     ]);
   });
 
+  it('a night shift missing its night rule lists only its start date', () => {
+    const night: PremiumRule = {
+      ...base,
+      id: 'night',
+      name: 'Nights',
+      stacking: 'stack',
+      multiplier: 1.2,
+      type: 'time_band',
+      startTime: '22:00',
+      endTime: '06:00',
+    };
+    // Last day of the period, 22:00 -> 06:00 the next day (outside the period).
+    const nightShift: Shift = {
+      ...shift('2026-01-18', '22:00', '23:00'),
+      end: localToInstant('2026-01-19', '06:00'),
+    };
+    const nightBreakdown = aggregatePeriod([nightShift], job, [night], bankHolidays, period);
+    expect(nightBreakdown.shifts[0].segments.map((s) => s.localDate)).toContain('2026-01-19');
+    const diff = diffPayslip(
+      payslip(nightBreakdown, nightBreakdown.totalGrossPence, {
+        lines: [{ label: 'Basic', amountPence: 1 }],
+      }),
+      nightBreakdown,
+    );
+    expect(diff.causes).toEqual([
+      { kind: 'rule_not_on_payslip', ruleId: 'night', dates: ['2026-01-18'] },
+    ]);
+  });
+
   it('hoursPaid off by 0.5h -> hours_differ, first in the list', () => {
     const paid = sundayBreakdown.totalGrossPence - sundayPence;
     const diff = diffPayslip(payslip(sundayBreakdown, paid, { hoursPaid: 22.5 }), sundayBreakdown);

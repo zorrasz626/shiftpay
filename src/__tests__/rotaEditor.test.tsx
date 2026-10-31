@@ -267,7 +267,8 @@ describe('Rota screen', () => {
     expect(disabled('Longer cycle')).toBe(true);
     expect(screen.getByTestId('screen-scroll')).toBeTruthy();
     expect(screen.getByText('Day 56 · Sat 26 Dec')).toBeTruthy();
-  });
+    // Renders a 56-day cycle: ~4.5 s alone, past Jest's 5 s default under load.
+  }, 15000);
 
   it('creates the pattern when there is none yet', async () => {
     await seed(false);
