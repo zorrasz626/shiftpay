@@ -39,25 +39,6 @@ import { useTheme } from '../../src/theme/useTheme';
 const LOCAL_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 type TopField = Exclude<PayslipFormField, 'lineLabel' | 'lineHours' | 'lineAmount'>;
-type TopTextKey = Exclude<keyof PayslipFormValues, 'lines'>;
-
-const TEXT_KEY: Record<TopField, TopTextKey> = {
-  gross: 'grossText',
-  hours: 'hoursText',
-  tax: 'taxText',
-  ni: 'niText',
-  pension: 'pensionText',
-  net: 'netText',
-};
-
-const LINE_TEXT_KEY: Record<
-  'lineLabel' | 'lineHours' | 'lineAmount',
-  keyof PayslipLineFormValues
-> = {
-  lineLabel: 'label',
-  lineHours: 'hoursText',
-  lineAmount: 'amountText',
-};
 
 const EMPTY_LINE: PayslipLineFormValues = { label: '', hoursText: '', amountText: '' };
 
@@ -86,16 +67,15 @@ function PayslipForm({
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const errors = payslipFormErrors(values);
-  // Errors show once Save was tried, or once the field itself has text.
-  const errorFor = (field: TopField) => {
-    if (!submitted && values[TEXT_KEY[field]] === '') return undefined;
-    return errors.find((e) => e.field === field)?.message;
-  };
-  const lineErrorFor = (field: 'lineLabel' | 'lineHours' | 'lineAmount', index: number) => {
-    const line = values.lines[index] as PayslipLineFormValues;
-    if (!submitted && line[LINE_TEXT_KEY[field]] === '') return undefined;
-    return errors.find((e) => e.field === field && e.lineIndex === index)?.message;
-  };
+  // Errors show only once Save was tried. Showing them as soon as a field had
+  // text made them flash per keystroke (e.g. "12." before the pence), so the
+  // fields below jumped up and down while typing and the next tap missed.
+  const errorFor = (field: TopField) =>
+    submitted ? errors.find((e) => e.field === field)?.message : undefined;
+  const lineErrorFor = (field: 'lineLabel' | 'lineHours' | 'lineAmount', index: number) =>
+    submitted
+      ? errors.find((e) => e.field === field && e.lineIndex === index)?.message
+      : undefined;
 
   const set = (patch: Partial<PayslipFormValues>) => setValues((v) => ({ ...v, ...patch }));
   const setLine = (index: number, patch: Partial<PayslipLineFormValues>) =>
@@ -221,7 +201,7 @@ function PayslipForm({
                 error={lineErrorFor('lineAmount', i)}
               />
               <View style={{ marginBottom: spacing.sm }}>
-                <Button label="Remove line" variant="quiet" onPress={() => removeLine(i)} />
+                <Button label="Remove line" variant="secondary" onPress={() => removeLine(i)} />
               </View>
             </View>
           ))}

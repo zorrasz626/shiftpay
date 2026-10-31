@@ -1,7 +1,7 @@
 /**
  * Holiday screen (SPEC §5 Holiday, screen 6): entitlement ring and
  * entitled / accrued / taken / booked / remaining for the current holiday
- * year. Booking happens on the Calendar (day sheet status Holiday).
+ * year. Booking happens on the Book holiday calendar (day sheet status Holiday).
  */
 import { useRouter } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
@@ -83,7 +83,7 @@ export default function HolidayScreen() {
       </Card>
       <View style={gap} />
 
-      <Button label="Book holiday" onPress={() => router.push({ pathname: '/calendar' })} />
+      <Button label="Book holiday" onPress={() => router.push({ pathname: '/holiday/book' })} />
       <View style={{ height: spacing.md }} />
       <Button
         label="Holiday settings"

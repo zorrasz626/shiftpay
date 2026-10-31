@@ -6,6 +6,7 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
@@ -223,6 +224,7 @@ function ShiftCard({
 export function DaySheet({ date, onClose }: DaySheetProps) {
   const { colors, typography, spacing, radius } = useTheme();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const job = useJobsStore((s) => s.jobs[0]);
   const allShifts = useShiftsStore((s) => s.shifts);
   const [mode, setMode] = useState<Mode>({ kind: 'list' });
@@ -259,6 +261,8 @@ export function DaySheet({ date, onClose }: DaySheetProps) {
               borderTopLeftRadius: radius.card,
               borderTopRightRadius: radius.card,
               padding: spacing.lg,
+              // Edge-to-edge: keep the last content (the disclaimer) off the gesture bar.
+              paddingBottom: spacing.lg + insets.bottom,
             },
           ]}
         >

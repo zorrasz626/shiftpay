@@ -111,12 +111,12 @@ describe('Holiday screen', () => {
     expect(screen.getByText(`${formatHolidayHours(-expected.remaining)} over`)).toBeTruthy();
   });
 
-  it('navigates to the Calendar, Holiday settings and back', async () => {
+  it('navigates to Book holiday, Holiday settings and back', async () => {
     await seed();
     await render(<HolidayScreen />);
 
     await fireEvent.press(await screen.findByText('Book holiday'));
-    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/calendar' });
+    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/holiday/book' });
     await fireEvent.press(screen.getByText('Holiday settings'));
     expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/settings/holiday' });
     await fireEvent.press(screen.getByText('Back'));

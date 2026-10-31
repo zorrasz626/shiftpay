@@ -10,6 +10,8 @@ import migrations from '../drizzle/migrations';
 import { db } from '../src/db/client';
 import { tzSelfCheck } from '../src/dev/tzSelfCheck';
 import { instantToLocal } from '../src/engine/time';
+import { expoNotifier } from '../src/services/notifier';
+import { startReminderSync } from '../src/services/reminderSync';
 import { bootstrap } from '../src/store/bootstrap';
 
 function ErrorScreen({ message }: { message: string }) {
@@ -55,6 +57,13 @@ export default function RootLayout() {
       cancelled = true;
     };
   }, [success]);
+
+  // After boot: schedule shift reminders now and whenever shifts, jobs or
+  // settings change. Does nothing (beyond cancelling) until onboarding is done.
+  useEffect(() => {
+    if (!booted) return;
+    return startReminderSync(expoNotifier);
+  }, [booted]);
 
   if (error) {
     return <ErrorScreen message={`Database migration failed: ${error.message}`} />;

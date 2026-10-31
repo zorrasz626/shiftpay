@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 
 import PayslipScreen from '../../app/payslip/[start]';
 import { db } from '../db/client';
@@ -61,6 +62,9 @@ const field = (label: string, index = 0) => screen.getAllByLabelText(label)[inde
 const stored = () => usePayslipsStore.getState().payslips;
 const allMessages = Object.values(PAYSLIP_FORM_MESSAGES);
 const shownMessages = () => allMessages.filter((m) => screen.queryAllByText(m).length > 0);
+type StyleProps = { props: { style?: unknown } };
+const styleOf = (el: StyleProps): Record<string, unknown> =>
+  (StyleSheet.flatten(el.props.style as never) as Record<string, unknown> | undefined) ?? {};
 
 beforeEach(async () => {
   resetStores();
@@ -146,7 +150,10 @@ describe('Payslip screen', () => {
 
     await fireEvent.changeText(field('Gross pay (£)'), '468.75');
     const second = screen.getAllByTestId('payslip-line')[1];
-    await fireEvent.press(within(second).getByRole('button', { name: 'Remove line' }));
+    const remove = within(second).getByRole('button', { name: 'Remove line' });
+    // Secondary variant: an outlined button, not plain text.
+    expect(styleOf(remove)).toMatchObject({ borderWidth: 1, minHeight: 48 });
+    await fireEvent.press(remove);
     expect(screen.getAllByTestId('payslip-line')).toHaveLength(1);
     await fireEvent.changeText(field('Net pay (£, optional)'), '');
     await fireEvent.press(button('Save'));
@@ -179,25 +186,29 @@ describe('Payslip screen', () => {
     expect(await getPayslip(db, existing.id)).toBeUndefined();
   });
 
-  it('shows errors once a field has text or after Save, and never saves bad input', async () => {
+  it('shows errors only after Save, and never saves bad input', async () => {
     await seed();
     await render(<PayslipScreen />);
 
+    // No errors while typing, even mid-entry ("12." before the pence), so the
+    // fields below never jump as error lines come and go.
+    await fireEvent.changeText(field('Gross pay (£)'), '12.');
     await fireEvent.changeText(field('National Insurance (£)'), '-5');
-    expect(shownMessages()).toEqual([PAYSLIP_FORM_MESSAGES.ni]);
     await fireEvent.changeText(field('Hours paid (optional)'), '800');
-    expect(screen.getByText(PAYSLIP_FORM_MESSAGES.hours)).toBeTruthy();
     await fireEvent.press(button('Add line'));
     await fireEvent.changeText(field('Amount (£)'), '1.234');
-    expect(screen.getByText(PAYSLIP_FORM_MESSAGES.lineAmount)).toBeTruthy();
-    expect(screen.queryByText(PAYSLIP_FORM_MESSAGES.lineLabel)).toBeNull();
-    expect(screen.queryByText(PAYSLIP_FORM_MESSAGES.gross)).toBeNull();
+    expect(shownMessages()).toEqual([]);
     expect(screen.queryByText(/^Lines add up to/)).toBeNull();
 
     expect(button('Save').props.accessibilityState.disabled).toBe(false);
     await fireEvent.press(button('Save'));
-    expect(screen.getByText(PAYSLIP_FORM_MESSAGES.gross)).toBeTruthy();
-    expect(screen.getByText(PAYSLIP_FORM_MESSAGES.lineLabel)).toBeTruthy();
+    expect(shownMessages()).toEqual([
+      PAYSLIP_FORM_MESSAGES.gross,
+      PAYSLIP_FORM_MESSAGES.hours,
+      PAYSLIP_FORM_MESSAGES.ni,
+      PAYSLIP_FORM_MESSAGES.lineLabel,
+      PAYSLIP_FORM_MESSAGES.lineAmount,
+    ]);
 
     await fireEvent.changeText(field('Tax (£)'), 'abc');
     await fireEvent.changeText(field('Pension (£)'), '1.5.0');

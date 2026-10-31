@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
+import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 
 import CalendarScreen from '../../app/(tabs)/calendar';
 import { db } from '../db/client';
@@ -11,7 +12,7 @@ import { daySheetTitle } from '../features/calendar/DaySheet';
 import { useJobsStore } from '../store/jobsStore';
 import { useShiftsStore } from '../store/shiftsStore';
 import { job, resetStores, shift } from '../store/testFixtures';
-import { darkColors, lightColors } from '../theme/tokens';
+import { darkColors, lightColors, spacing } from '../theme/tokens';
 
 jest.mock('../db/client', () => ({ db: require('../db/testDb').createTestDb() }));
 let mockScheme: 'light' | 'dark' = 'light';
@@ -112,6 +113,17 @@ describe('Day sheet', () => {
     expect(card('p-1').getByText('08:00–16:00')).toBeTruthy();
     expect(card('p-1').getByRole('button', { name: 'Worked' })).toBeSelected();
     expect(within(screen.getByTestId('day-sheet')).getByText(/Estimates only/)).toBeTruthy();
+  });
+
+  it('pads the sheet bottom by the safe-area inset so the disclaimer clears the gesture bar', async () => {
+    await seed();
+    await render(
+      <SafeAreaInsetsContext.Provider value={{ top: 0, right: 0, bottom: 24, left: 0 }}>
+        <CalendarScreen />
+      </SafeAreaInsetsContext.Provider>,
+    );
+    await openDay('2026-06-18');
+    expect(styleOf(screen.getByTestId('day-sheet')).paddingBottom).toBe(spacing.lg + 24);
   });
 
   it('sets sick, holiday and cancelled; a pattern shift has no delete', async () => {

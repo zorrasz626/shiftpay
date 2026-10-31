@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { bankHolidays } from '../../src/config/bankHolidays';
@@ -172,7 +172,16 @@ function NavButton({
   );
 }
 
-export default function CalendarScreen() {
+export type CalendarViewProps = {
+  readonly title: string;
+  /** Shown under the title, above the month header. */
+  readonly intro?: ReactNode;
+  /** Pinned footer (e.g. Back) for use outside the tabs; also pads it by the bottom inset. */
+  readonly footer?: ReactNode;
+};
+
+/** The month grid and day sheet; the Calendar tab and Book holiday (root stack) both render it. */
+export function CalendarView({ title, intro, footer }: CalendarViewProps) {
   const { colors, typography, spacing } = useTheme();
   const job = useJobsStore((s) => s.jobs[0]);
   const shifts = useShiftsStore((s) => s.shifts);
@@ -199,7 +208,7 @@ export default function CalendarScreen() {
 
   if (job === undefined || grid === null) {
     return (
-      <Screen title="Calendar">
+      <Screen title={title} footer={footer} bottomInset={footer !== undefined}>
         <Disclaimer />
       </Screen>
     );
@@ -220,7 +229,8 @@ export default function CalendarScreen() {
   const grid48 = { marginHorizontal: -spacing.sm };
 
   return (
-    <Screen title="Calendar" scroll>
+    <Screen title={title} scroll footer={footer} bottomInset={footer !== undefined}>
+      {intro}
       <View style={styles.header}>
         <NavButton glyph="‹" label="Previous month" disabled={!canGo(-1)} onPress={() => go(-1)} />
         <Text
@@ -270,6 +280,10 @@ export default function CalendarScreen() {
       <DaySheet date={openDate} onClose={() => setOpenDate(null)} />
     </Screen>
   );
+}
+
+export default function CalendarScreen() {
+  return <CalendarView title="Calendar" />;
 }
 
 const styles = StyleSheet.create({
