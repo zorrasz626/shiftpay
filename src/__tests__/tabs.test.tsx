@@ -43,10 +43,10 @@ const themes: [label: 'light' | 'dark', colors: Colors][] = [
   ['dark', darkColors],
 ];
 
-// Placeholder tabs only; Calendar is covered by calendarScreen.test.tsx.
-const screens: [title: string, Screen: ComponentType][] = [
-  ['Pay', PayScreen],
-  ['Settings', SettingsScreen],
+// Calendar is covered by calendarScreen.test.tsx; Settings in detail by settingsScreen.test.tsx.
+const screens: [title: string, Screen: ComponentType, body: RegExp][] = [
+  ['Pay', PayScreen, /will appear here/],
+  ['Settings', SettingsScreen, /No job set up yet/],
 ];
 
 describe.each(themes)('tab screens in %s theme', (scheme, colors) => {
@@ -54,12 +54,12 @@ describe.each(themes)('tab screens in %s theme', (scheme, colors) => {
     mockScheme = scheme;
   });
 
-  it.each(screens)('%s renders its title in the title style', async (title, Screen) => {
+  it.each(screens)('%s renders its title in the title style', async (title, Screen, body) => {
     await render(<Screen />);
     const titleEl = screen.getByText(title);
     expect(styleOf(titleEl).color).toBe(colors.ink);
     expect(styleOf(titleEl).fontFamily).toBe(fontFamily.condensedSemiBold);
-    expect(screen.getByText(/will appear here/)).toBeTruthy();
+    expect(screen.getByText(body)).toBeTruthy();
   });
 
   it('only Settings shows the disclaimer among the placeholders', async () => {
