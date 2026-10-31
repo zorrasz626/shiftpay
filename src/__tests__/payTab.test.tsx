@@ -6,8 +6,9 @@ import PeriodDetailScreen from '../../app/period/[start]';
 import { bankHolidays } from '../config/bankHolidays';
 import { formatPence, parsePoundsToPence, sumPence } from '../engine/money';
 import { aggregatePeriod } from '../engine/payPeriods';
-import type { PremiumRule } from '../engine/types';
+import type { Payslip, PremiumRule } from '../engine/types';
 import { useJobsStore } from '../store/jobsStore';
+import { usePayslipsStore } from '../store/payslipsStore';
 import { useRulesStore } from '../store/rulesStore';
 import { useShiftsStore } from '../store/shiftsStore';
 import { job, resetStores, shift } from '../store/testFixtures';
@@ -84,6 +85,17 @@ const periods = [
   { start: '2026-06-08', end: '2026-06-14' },
   { start: '2026-06-01', end: '2026-06-07' },
 ];
+
+const payslip: Payslip = {
+  id: 'ps-1',
+  jobId: job.id,
+  periodStart: '2026-06-15',
+  periodEnd: '2026-06-21',
+  grossPaidPence: 123456,
+  taxPence: 0,
+  niPence: 0,
+  pensionPence: 0,
+};
 
 const enginePence = (period: { start: string; end: string }) =>
   aggregatePeriod(shifts, job, rules, bankHolidays, period).totalGrossPence;
@@ -214,12 +226,37 @@ describe('Period detail screen', () => {
     });
   });
 
-  it('"Check payslip" is disabled for now', async () => {
+  it('"Check payslip" opens the payslip screen when none is saved', async () => {
     seed();
     await render(<PeriodDetailScreen />);
     const button = screen.getByRole('button', { name: 'Check payslip' });
-    expect(button.props.accessibilityState).toMatchObject({ disabled: true });
-    expect(screen.getByText('Coming soon')).toBeTruthy();
+    expect(button.props.accessibilityState).toMatchObject({ disabled: false });
+    expect(screen.queryByText(/Payslip entered/)).toBeNull();
+    expect(screen.queryByText('Coming soon')).toBeNull();
+    await fireEvent.press(button);
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/payslip/[start]',
+      params: { start: '2026-06-15' },
+    });
+  });
+
+  it('"Edit payslip" and the entered gross when a payslip is saved', async () => {
+    seed();
+    usePayslipsStore.setState({
+      payslips: [
+        { ...payslip, id: 'ps-other', periodStart: '2026-06-08', periodEnd: '2026-06-14' },
+        payslip,
+      ],
+      loaded: true,
+    });
+    await render(<PeriodDetailScreen />);
+    expect(screen.queryByRole('button', { name: 'Check payslip' })).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Edit payslip' }));
+    expect(screen.getByText('Payslip entered: £1,234.56 gross')).toBeTruthy();
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/payslip/[start]',
+      params: { start: '2026-06-15' },
+    });
   });
 
   it('a past period with no pay shows the empty lines', async () => {

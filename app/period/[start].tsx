@@ -22,6 +22,7 @@ import type { ShiftStatus } from '../../src/engine/types';
 import { formatDayDate } from '../../src/features/home/homeView';
 import { formatHours, payDayLine, periodRangeLabel } from '../../src/features/pay/payView';
 import { useJobsStore } from '../../src/store/jobsStore';
+import { payslipForPeriod, usePayslipsStore } from '../../src/store/payslipsStore';
 import { useRulesStore } from '../../src/store/rulesStore';
 import { useShiftsStore } from '../../src/store/shiftsStore';
 import { tabularNums } from '../../src/theme/tokens';
@@ -116,6 +117,7 @@ export default function PeriodDetailScreen() {
   const shifts = useShiftsStore((s) => s.shifts);
   const range = useShiftsStore((s) => s.range);
   const rules = useRulesStore((s) => s.rules);
+  const payslips = usePayslipsStore((s) => s.payslips);
   const today = instantToLocal(new Date().toISOString()).date;
 
   // Only a real period start whose whole period is loaded (else totals would be partial).
@@ -154,6 +156,7 @@ export default function PeriodDetailScreen() {
   }
 
   const gap = { height: spacing.lg };
+  const payslip = job === undefined ? undefined : payslipForPeriod(payslips, job.id, period.start);
 
   return (
     <Screen title={periodRangeLabel(period.start, period.end)} scroll bottomInset footer={back}>
@@ -195,16 +198,26 @@ export default function PeriodDetailScreen() {
       </View>
       <View style={gap} />
 
-      <Button label="Check payslip" variant="secondary" disabled onPress={() => undefined} />
-      <Text
-        style={[
-          typography.caption,
-          styles.center,
-          { color: colors.inkMuted, marginTop: spacing.xs, marginBottom: spacing.lg },
-        ]}
-      >
-        Coming soon
-      </Text>
+      <Button
+        label={payslip === undefined ? 'Check payslip' : 'Edit payslip'}
+        variant="secondary"
+        onPress={() =>
+          router.push({ pathname: '/payslip/[start]', params: { start: period.start } })
+        }
+      />
+      {payslip !== undefined && (
+        <Text
+          style={[
+            typography.caption,
+            styles.center,
+            styles.nums,
+            { color: colors.inkMuted, marginTop: spacing.xs },
+          ]}
+        >
+          {`Payslip entered: ${formatPence(payslip.grossPaidPence)} gross`}
+        </Text>
+      )}
+      <View style={gap} />
 
       <Disclaimer />
     </Screen>

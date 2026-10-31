@@ -8,6 +8,7 @@ import type { LocalDate } from '../engine/types';
 import type { AppDb } from '../db/jobRepo';
 import { materialiseShifts, materialiseWindow } from '../services/materialise';
 import { useJobsStore } from './jobsStore';
+import { usePayslipsStore } from './payslipsStore';
 import { useRotaStore } from './rotaStore';
 import { useRulesStore } from './rulesStore';
 import { useSettingsStore } from './settingsStore';
@@ -28,6 +29,7 @@ export async function bootstrap(db: AppDb, today: LocalDate): Promise<BootstrapR
 
   await useJobsStore.getState().load(db);
   await useRulesStore.getState().load(db);
+  await usePayslipsStore.getState().load(db);
   await useRotaStore.getState().load(db);
   await useSettingsStore.getState().load(db);
   await useShiftsStore.getState().load(db, materialiseWindow(today));

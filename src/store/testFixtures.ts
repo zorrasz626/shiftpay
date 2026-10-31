@@ -2,6 +2,7 @@
 import type { StoredJob } from '../db/jobRepo';
 import type { StoredShift } from '../db/shiftRepo';
 import { useJobsStore } from './jobsStore';
+import { usePayslipsStore } from './payslipsStore';
 import { useRotaStore } from './rotaStore';
 import { useRulesStore } from './rulesStore';
 import { useSettingsStore } from './settingsStore';
@@ -47,4 +48,5 @@ export function resetStores(): void {
   useShiftsStore.setState(useShiftsStore.getInitialState(), true);
   useRulesStore.setState(useRulesStore.getInitialState(), true);
   useRotaStore.setState(useRotaStore.getInitialState(), true);
+  usePayslipsStore.setState(usePayslipsStore.getInitialState(), true);
 }

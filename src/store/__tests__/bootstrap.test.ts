@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import type { PremiumRule, RotaPattern } from '../../engine/types';
+import type { Payslip, PremiumRule, RotaPattern } from '../../engine/types';
 import { type AppDb, createJob, createPremiumRule } from '../../db/jobRepo';
 import {
   type StoredShiftTemplate,
@@ -9,11 +9,13 @@ import {
   createShiftTemplate,
   deleteShiftTemplate,
 } from '../../db/rotaRepo';
+import { createPayslip } from '../../db/payslipRepo';
 import { createShift } from '../../db/shiftRepo';
 import { createTestDb } from '../../db/testDb';
 import { materialiseWindow } from '../../services/materialise';
 import { bootstrap } from '../bootstrap';
 import { useJobsStore } from '../jobsStore';
+import { usePayslipsStore } from '../payslipsStore';
 import { useRulesStore } from '../rulesStore';
 import { useSettingsStore } from '../settingsStore';
 import { useShiftsStore } from '../shiftsStore';
@@ -54,6 +56,7 @@ describe('bootstrap', () => {
     await expect(bootstrap(db, TODAY)).resolves.toEqual({});
     expect(useJobsStore.getState()).toMatchObject({ jobs: [], loaded: true });
     expect(useRulesStore.getState()).toMatchObject({ rules: [], loaded: true });
+    expect(usePayslipsStore.getState()).toMatchObject({ payslips: [], loaded: true });
     expect(useSettingsStore.getState()).toMatchObject({ values: {}, loaded: true });
     expect(useShiftsStore.getState()).toMatchObject({
       shifts: [],
@@ -103,6 +106,24 @@ describe('bootstrap', () => {
     expect(useRulesStore.getState().loaded).toBe(true);
     expect(useRulesStore.getState().rules).toHaveLength(rules.length);
     expect(useRulesStore.getState().rules).toEqual(expect.arrayContaining(rules));
+  });
+
+  it('loads every stored payslip with its lines', async () => {
+    await createJob(db, job);
+    const payslip: Payslip = {
+      id: 'p-1',
+      jobId: 'job-1',
+      periodStart: '2026-06-08',
+      periodEnd: '2026-06-14',
+      grossPaidPence: 46875,
+      lines: [{ label: 'Basic', hours: 37.5, amountPence: 46875 }],
+      taxPence: 5000,
+      niPence: 2000,
+      pensionPence: 1000,
+    };
+    await createPayslip(db, payslip);
+    await bootstrap(db, TODAY);
+    expect(usePayslipsStore.getState()).toMatchObject({ payslips: [payslip], loaded: true });
   });
 
   it('with a pattern whose template was deleted returns materialiseError and still loads', async () => {
