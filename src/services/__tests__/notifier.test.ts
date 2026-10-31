@@ -1,7 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
-import { REMINDER_CHANNEL_ID, expoNotifier } from '../notifier';
+import { REMINDER_CHANNEL_ID, expoNotifier, notificationsAllowed } from '../notifier';
 
 jest.mock('expo-notifications', () => ({
   AndroidImportance: { DEFAULT: 3 },
@@ -54,6 +54,14 @@ describe('expoNotifier', () => {
     expect(mocked.requestPermissionsAsync).not.toHaveBeenCalled();
   });
 
+  it('with ask: false only reads the status, never prompts', async () => {
+    mocked.getPermissionsAsync.mockResolvedValue(perm(false));
+    await expect(expoNotifier.ensurePermission({ ask: false })).resolves.toBe(false);
+    mocked.getPermissionsAsync.mockResolvedValue(perm(true));
+    await expect(expoNotifier.ensurePermission({ ask: false })).resolves.toBe(true);
+    expect(mocked.requestPermissionsAsync).not.toHaveBeenCalled();
+  });
+
   it('returns false instead of throwing', async () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     mocked.getPermissionsAsync.mockRejectedValue(new Error('boom'));
@@ -85,5 +93,19 @@ describe('expoNotifier', () => {
   it('foreground handler shows the banner', async () => {
     const { handleNotification } = mocked.setNotificationHandler.mock.calls[0][0]!;
     await expect(handleNotification({} as never)).resolves.toMatchObject({ shouldShowBanner: true });
+  });
+
+  it('reads the permission without asking, and never throws', async () => {
+    mocked.getPermissionsAsync.mockResolvedValue(perm(true));
+    await expect(notificationsAllowed()).resolves.toBe(true);
+    mocked.getPermissionsAsync.mockResolvedValue(perm(false));
+    await expect(notificationsAllowed()).resolves.toBe(false);
+    expect(mocked.requestPermissionsAsync).not.toHaveBeenCalled();
+
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    mocked.getPermissionsAsync.mockRejectedValue(new Error('boom'));
+    await expect(notificationsAllowed()).resolves.toBe(false);
+    expect(warn).toHaveBeenCalledWith('Notification permission check failed.', expect.any(Error));
+    warn.mockRestore();
   });
 });

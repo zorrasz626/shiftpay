@@ -1,7 +1,8 @@
 /**
  * Settings tab: the job (name and base rate, opens Job settings), the pay
  * rules (opens the rule list), the rota (opens the rota editor), holiday
- * (opens Holiday settings) and the disclaimer. Free tier = one job, one rota pattern.
+ * (opens Holiday settings), shift reminders (opens Reminder settings) and the
+ * disclaimer. Free tier = one job, one rota pattern.
  */
 import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -10,10 +11,12 @@ import { Card } from '../../src/components/Card';
 import { Disclaimer } from '../../src/components/Disclaimer';
 import { Screen } from '../../src/components/Screen';
 import { formatPence } from '../../src/engine/money';
+import { formatLeadMinutes, reminderSettings } from '../../src/engine/reminders';
 import type { Job, RotaPattern } from '../../src/engine/types';
 import { useJobsStore } from '../../src/store/jobsStore';
 import { useRotaStore } from '../../src/store/rotaStore';
 import { useRulesStore } from '../../src/store/rulesStore';
+import { useSettingsStore } from '../../src/store/settingsStore';
 import { tabularNums } from '../../src/theme/tokens';
 import { useTheme } from '../../src/theme/useTheme';
 
@@ -43,6 +46,12 @@ function holidayLabel(job: Job): string {
   return job.holidayMode === 'accrual'
     ? 'Accrual (12.07%)'
     : `${job.holidayEntitlementHours} h a year`;
+}
+
+/** "On · 1 h before", or "Off". */
+function remindersLabel(values: Record<string, unknown>): string {
+  const { enabled, leadMinutes } = reminderSettings(values);
+  return enabled ? `On · ${formatLeadMinutes(leadMinutes)} before` : 'Off';
 }
 
 /** A tappable settings row, at least 48dp tall. */
@@ -82,6 +91,7 @@ export default function SettingsScreen() {
   const pattern = useRotaStore((s) =>
     job === undefined ? undefined : s.patterns.find((p) => p.jobId === job.id),
   );
+  const settingsValues = useSettingsStore((s) => s.values);
   const gap = { height: spacing.lg };
 
   return (
@@ -127,6 +137,15 @@ export default function SettingsScreen() {
           <View style={gap} />
         </>
       )}
+
+      <Card title="Reminders">
+        <SettingsRow
+          label="Shift reminders"
+          detail={remindersLabel(settingsValues)}
+          onPress={() => router.push({ pathname: '/settings/reminders' })}
+        />
+      </Card>
+      <View style={gap} />
 
       <Card title="About">
         <SettingsRow

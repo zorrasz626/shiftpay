@@ -12,8 +12,11 @@ import type { PlannedReminder } from '../engine/reminders';
 export const REMINDER_CHANNEL_ID = 'shift-reminders';
 
 export interface Notifier {
-  /** True when notifications may be shown; asks the user if not yet decided. Never throws. */
-  ensurePermission(): Promise<boolean>;
+  /**
+   * True when notifications may be shown. Asks the user if not yet decided,
+   * unless `ask` is false (then it only reads the status). Never throws.
+   */
+  ensurePermission(options?: { ask?: boolean }): Promise<boolean>;
   cancelAll(): Promise<void>;
   schedule(reminder: PlannedReminder): Promise<void>;
 }
@@ -48,13 +51,23 @@ function setup(): Promise<void> {
   return setupDone;
 }
 
+/** True when notifications are allowed right now. Never asks the user, never throws. */
+export async function notificationsAllowed(): Promise<boolean> {
+  try {
+    return (await Notifications.getPermissionsAsync()).granted;
+  } catch (e) {
+    console.warn('Notification permission check failed.', e);
+    return false;
+  }
+}
+
 export const expoNotifier: Notifier = {
-  async ensurePermission() {
+  async ensurePermission({ ask = true } = {}) {
     try {
       await setup();
       const current = await Notifications.getPermissionsAsync();
       if (current.granted) return true;
-      if (!current.canAskAgain) return false;
+      if (!ask || !current.canAskAgain) return false;
       const requested = await Notifications.requestPermissionsAsync();
       return requested.granted;
     } catch (e) {
