@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 
 import PayScreen from '../../app/(tabs)/pay';
@@ -231,7 +231,8 @@ describe('Period detail screen', () => {
     await render(<PeriodDetailScreen />);
     const button = screen.getByRole('button', { name: 'Check payslip' });
     expect(button.props.accessibilityState).toMatchObject({ disabled: false });
-    expect(screen.queryByText(/Payslip entered/)).toBeNull();
+    expect(screen.queryByTestId('payslip-check')).toBeNull();
+    expect(screen.queryByText('Payslip check')).toBeNull();
     expect(screen.queryByText('Coming soon')).toBeNull();
     await fireEvent.press(button);
     expect(mockPush).toHaveBeenCalledWith({
@@ -240,7 +241,7 @@ describe('Period detail screen', () => {
     });
   });
 
-  it('"Edit payslip" and the entered gross when a payslip is saved', async () => {
+  it('"Edit payslip" and the check card when a payslip is saved', async () => {
     seed();
     usePayslipsStore.setState({
       payslips: [
@@ -251,12 +252,50 @@ describe('Period detail screen', () => {
     });
     await render(<PeriodDetailScreen />);
     expect(screen.queryByRole('button', { name: 'Check payslip' })).toBeNull();
+    expect(screen.queryByText(/Payslip entered/)).toBeNull();
+
+    const expected = enginePence(periods[1]);
+    const card = within(screen.getByTestId('payslip-check'));
+    expect(card.getByRole('header', { name: 'Payslip check' })).toBeTruthy();
+    expect(within(card.getByTestId('check-expected')).getByText(formatPence(expected))).toBeTruthy();
+    expect(within(card.getByTestId('check-paid')).getByText('£1,234.56')).toBeTruthy();
+    expect(card.getByTestId('chip')).toBeTruthy();
+    expect(card.queryByTestId('check-paid-hours')).toBeNull();
+    expect(screen.getByText(/Estimates only/)).toBeTruthy();
+
     await fireEvent.press(screen.getByRole('button', { name: 'Edit payslip' }));
-    expect(screen.getByText('Payslip entered: £1,234.56 gross')).toBeTruthy();
     expect(mockPush).toHaveBeenCalledWith({
       pathname: '/payslip/[start]',
       params: { start: '2026-06-15' },
     });
+  });
+
+  it('the check card updates when the payslip or shifts change', async () => {
+    seed();
+    await render(<PeriodDetailScreen />);
+    expect(screen.queryByTestId('payslip-check')).toBeNull();
+
+    const expected = enginePence(periods[1]);
+    await act(async () => {
+      usePayslipsStore.setState({
+        payslips: [{ ...payslip, grossPaidPence: expected }],
+        loaded: true,
+      });
+    });
+    expect(screen.getByText('Match')).toBeTruthy();
+    expect(within(screen.getByTestId('check-difference')).getByText('£0.00')).toBeTruthy();
+
+    await act(async () => {
+      useShiftsStore.setState({
+        shifts: shifts.filter((s) => s.date !== '2026-06-19'),
+        range,
+        loaded: true,
+      });
+    });
+    expect(screen.queryByText('Match')).toBeNull();
+    expect(screen.getByText(/^Overpaid by £/)).toBeTruthy();
+    expect(within(screen.getByTestId('check-difference')).getByText(/^\+£/)).toBeTruthy();
+    expect(screen.getByText('Edit payslip')).toBeTruthy();
   });
 
   it('a past period with no pay shows the empty lines', async () => {

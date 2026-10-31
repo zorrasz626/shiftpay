@@ -16,10 +16,12 @@ import { Screen } from '../../src/components/Screen';
 import { bankHolidays } from '../../src/config/bankHolidays';
 import { formatPence } from '../../src/engine/money';
 import { periodContaining } from '../../src/engine/payPeriods';
+import { payslipCheck } from '../../src/engine/payslipCheck';
 import { periodDetail, type PeriodDetailShift } from '../../src/engine/periodList';
 import { instantToLocal } from '../../src/engine/time';
 import type { ShiftStatus } from '../../src/engine/types';
 import { formatDayDate } from '../../src/features/home/homeView';
+import { PayslipCheckCard } from '../../src/features/pay/PayslipCheckCard';
 import { formatHours, payDayLine, periodRangeLabel } from '../../src/features/pay/payView';
 import { useJobsStore } from '../../src/store/jobsStore';
 import { payslipForPeriod, usePayslipsStore } from '../../src/store/payslipsStore';
@@ -128,18 +130,34 @@ export default function PeriodDetailScreen() {
     return p.start === start && p.start >= range.start && p.end <= range.end ? p : null;
   }, [job, range, start]);
 
+  const jobRules = useMemo(
+    () => (job === undefined ? [] : rules.filter((r) => r.jobId === job.id)),
+    [job, rules],
+  );
+
   const detail = useMemo(
     () =>
       job === undefined || period === null
         ? null
-        : periodDetail({
-            shifts,
-            job,
-            rules: rules.filter((r) => r.jobId === job.id),
-            bankHolidays,
-            period,
-          }),
-    [job, period, shifts, rules],
+        : periodDetail({ shifts, job, rules: jobRules, bankHolidays, period }),
+    [job, period, shifts, jobRules],
+  );
+
+  const payslip = useMemo(
+    () =>
+      job === undefined || period === null
+        ? undefined
+        : payslipForPeriod(payslips, job.id, period.start),
+    [job, period, payslips],
+  );
+
+  // Re-runs whenever shifts, rules or the saved payslip change.
+  const check = useMemo(
+    () =>
+      job === undefined || period === null || payslip === undefined
+        ? null
+        : payslipCheck({ shifts, job, rules: jobRules, bankHolidays, period, payslip }),
+    [job, period, shifts, jobRules, payslip],
   );
 
   const back = <Button label="Back" variant="secondary" onPress={() => router.back()} />;
@@ -156,7 +174,6 @@ export default function PeriodDetailScreen() {
   }
 
   const gap = { height: spacing.lg };
-  const payslip = job === undefined ? undefined : payslipForPeriod(payslips, job.id, period.start);
 
   return (
     <Screen title={periodRangeLabel(period.start, period.end)} scroll bottomInset footer={back}>
@@ -198,6 +215,12 @@ export default function PeriodDetailScreen() {
       </View>
       <View style={gap} />
 
+      {check !== null && (
+        <>
+          <PayslipCheckCard check={check} />
+          <View style={{ height: spacing.md }} />
+        </>
+      )}
       <Button
         label={payslip === undefined ? 'Check payslip' : 'Edit payslip'}
         variant="secondary"
@@ -205,18 +228,6 @@ export default function PeriodDetailScreen() {
           router.push({ pathname: '/payslip/[start]', params: { start: period.start } })
         }
       />
-      {payslip !== undefined && (
-        <Text
-          style={[
-            typography.caption,
-            styles.center,
-            styles.nums,
-            { color: colors.inkMuted, marginTop: spacing.xs },
-          ]}
-        >
-          {`Payslip entered: ${formatPence(payslip.grossPaidPence)} gross`}
-        </Text>
-      )}
       <View style={gap} />
 
       <Disclaimer />
@@ -230,5 +241,4 @@ const styles = StyleSheet.create({
   divider: { borderBottomWidth: StyleSheet.hairlineWidth },
   grow: { flex: 1 },
   amount: { textAlign: 'right' },
-  center: { textAlign: 'center' },
 });
