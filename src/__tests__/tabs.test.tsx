@@ -45,7 +45,7 @@ const themes: [label: 'light' | 'dark', colors: Colors][] = [
 
 // Calendar is covered by calendarScreen.test.tsx; Settings in detail by settingsScreen.test.tsx.
 const screens: [title: string, Screen: ComponentType, body: RegExp][] = [
-  ['Pay', PayScreen, /will appear here/],
+  ['Pay', PayScreen, /see your pay periods/],
   ['Settings', SettingsScreen, /No job set up yet/],
 ];
 
@@ -62,11 +62,11 @@ describe.each(themes)('tab screens in %s theme', (scheme, colors) => {
     expect(screen.getByText(body)).toBeTruthy();
   });
 
-  it('only Settings shows the disclaimer among the placeholders', async () => {
+  it('Settings and Pay show the disclaimer with no job', async () => {
     await render(<SettingsScreen />);
     expect(screen.getByText(/Estimates only/)).toBeTruthy();
     await render(<PayScreen />);
-    expect(screen.queryByText(/Estimates only/)).toBeNull();
+    expect(screen.getByText(/Estimates only/)).toBeTruthy();
   });
 
   it('opens on Home with the four labelled tabs', async () => {
