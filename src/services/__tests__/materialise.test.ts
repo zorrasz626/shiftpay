@@ -55,6 +55,35 @@ describe('planMaterialisation', () => {
     expect(plan.remove).toEqual([]);
   });
 
+  it('a seeded pattern gets no past inserts, but today and future ones', () => {
+    // pat-1 is stored through the window end, so a newly-on past day is not back-filled.
+    const existing = [stored('2026-05-01'), stored('2026-10-13')];
+    const generated = [gen('2026-05-01'), gen('2026-05-02'), gen('2026-06-14'), gen(TODAY), gen('2026-07-01'), gen('2026-10-13')];
+    const plan = planMaterialisation(existing, generated, KNOWN, TODAY);
+    expect(plan).toEqual({ insert: [stored(TODAY), stored('2026-07-01')], update: [], remove: [] });
+    // Re-running once those are stored is a no-op.
+    const rerun = planMaterialisation([...existing, ...plan.insert], generated, KNOWN, TODAY);
+    expect(rerun).toEqual({ insert: [], update: [], remove: [] });
+  });
+
+  it('back-fills past dates after the pattern latest stored date (a long gap), not on or before it', () => {
+    const existing = [stored('2026-04-01'), stored('2026-06-10')];
+    const generated = [gen('2026-04-02'), gen('2026-06-09'), gen('2026-06-11'), gen('2026-06-14'), gen(TODAY)];
+    const plan = planMaterialisation(existing, generated, KNOWN, TODAY);
+    expect(plan.insert).toEqual([stored('2026-06-11'), stored('2026-06-14'), stored(TODAY)]);
+  });
+
+  it('counts a pattern as seeded by any of its rows, userModified or outside the window', () => {
+    const generated = [gen('2026-05-02')];
+    const modified = stored('2026-07-01', { userModified: true });
+    const beyond = stored('2026-12-01');
+    expect(planMaterialisation([modified], generated, KNOWN, TODAY).insert).toEqual([]);
+    expect(planMaterialisation([beyond], generated, KNOWN, TODAY).insert).toEqual([]);
+    // Another pattern's rows do not seed pat-1.
+    const other = stored('2026-05-01', { id: 'pat-2:2026-05-01', patternId: 'pat-2' });
+    expect(planMaterialisation([other], generated, KNOWN, TODAY).insert).toEqual([stored('2026-05-02')]);
+  });
+
   it('derives patternId from the generated id (pattern ids may contain colons)', () => {
     const plan = planMaterialisation([], [gen('2026-07-01', { id: 'a:b:2026-07-01' })], KNOWN, TODAY);
     expect(plan.insert[0].patternId).toBe('a:b');

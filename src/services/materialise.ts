@@ -5,6 +5,9 @@
  * Idempotent: the generated id (`${pattern.id}:${date}`) is the key. Rows the
  * user has edited (`userModified`) are never touched; past pattern rows are
  * left as history; future unmodified pattern rows follow the current pattern.
+ * A pattern back-fills past dates only up to its first materialisation (no
+ * stored rows yet) or after its latest stored date (a gap longer than the
+ * window's future reach); a pattern edit never adds past shifts.
  * Manual shifts and anything outside the window are never touched.
  * "today" is always passed in.
  */
@@ -73,8 +76,9 @@ function toStored(s: Shift): StoredShift {
 /**
  * Pure planner. `existing` are stored shifts (any may be passed; only pattern
  * shifts inside the window are candidates, but every id counts against
- * inserts). `generated` are the pattern shifts for the window;
- * `knownPatternIds` are the patterns that still exist.
+ * inserts, and every pattern row counts towards its pattern's latest stored date).
+ * `generated` are the pattern shifts for the window; `knownPatternIds` are the
+ * patterns that still exist.
  */
 export function planMaterialisation(
   existing: StoredShift[],
@@ -89,11 +93,25 @@ export function planMaterialisation(
     if (inWindow(g.date, window)) generatedById.set(g.id, toStored(g));
   }
 
+  // Latest stored date per pattern (rows anywhere, userModified included).
+  // Past dates up to it were materialised before and are history.
+  const seededThrough = new Map<string, LocalDate>();
+  for (const s of existing) {
+    if (s.patternId === undefined) continue;
+    const max = seededThrough.get(s.patternId);
+    if (max === undefined || s.date > max) seededThrough.set(s.patternId, s.date);
+  }
+
   const plan: MaterialisationPlan = { insert: [], update: [], remove: [] };
 
-  // Rule 1: generated id with no stored row -> insert (past dates too).
+  // Rule 1: generated id with no stored row -> insert. A past date only if
+  // its pattern has no stored row on or after it: a new pattern, or a gap
+  // after a long absence (Rule 5 keeps history as is).
   for (const gen of generatedById.values()) {
-    if (!existingById.has(gen.id)) plan.insert.push(gen);
+    if (existingById.has(gen.id)) continue;
+    const through = seededThrough.get(gen.patternId as string);
+    if (gen.date < today && through !== undefined && gen.date <= through) continue;
+    plan.insert.push(gen);
   }
 
   for (const stored of existing) {

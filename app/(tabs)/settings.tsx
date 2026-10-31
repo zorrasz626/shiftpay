@@ -1,6 +1,7 @@
 /**
  * Settings tab: the job (name and base rate, opens Job settings), the pay
- * rules (opens the rule list) and the disclaimer. Free tier = one job.
+ * rules (opens the rule list), the rota (opens the rota editor) and the
+ * disclaimer. Free tier = one job, one rota pattern.
  */
 import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -9,7 +10,9 @@ import { Card } from '../../src/components/Card';
 import { Disclaimer } from '../../src/components/Disclaimer';
 import { Screen } from '../../src/components/Screen';
 import { formatPence } from '../../src/engine/money';
+import type { RotaPattern } from '../../src/engine/types';
 import { useJobsStore } from '../../src/store/jobsStore';
+import { useRotaStore } from '../../src/store/rotaStore';
 import { useRulesStore } from '../../src/store/rulesStore';
 import { tabularNums } from '../../src/theme/tokens';
 import { useTheme } from '../../src/theme/useTheme';
@@ -18,6 +21,21 @@ import { useTheme } from '../../src/theme/useTheme';
 function payRulesLabel(count: number): string {
   if (count === 0) return 'No pay rules yet';
   return count === 1 ? '1 pay rule' : `${count} pay rules`;
+}
+
+/** "4 on 4 off · 8-day cycle", or "No rota yet". */
+function rotaLabel(pattern: RotaPattern | undefined): string {
+  if (pattern === undefined) return 'No rota yet';
+  const on = pattern.days.filter((d) => d !== 'OFF').length;
+  const off = pattern.days.length - on;
+  const cycle = `${pattern.days.length}-day cycle`;
+  // "N on M off" only for one block on and one block off (counting wrap-around);
+  // a 2-2-3 rota is not "7 on 7 off".
+  const changes = pattern.days.filter(
+    (d, i, all) => (d === 'OFF') !== (all[(i + 1) % all.length] === 'OFF'),
+  ).length;
+  if (changes <= 2) return `${on} on ${off} off · ${cycle}`;
+  return `${on} ${on === 1 ? 'shift' : 'shifts'} · ${cycle}`;
 }
 
 /** A tappable settings row, at least 48dp tall. */
@@ -54,6 +72,9 @@ export default function SettingsScreen() {
   const job = useJobsStore((s) => s.jobs[0]);
   const rules = useRulesStore((s) => s.rules);
   const ruleCount = job === undefined ? 0 : rules.filter((r) => r.jobId === job.id).length;
+  const pattern = useRotaStore((s) =>
+    job === undefined ? undefined : s.patterns.find((p) => p.jobId === job.id),
+  );
   const gap = { height: spacing.lg };
 
   return (
@@ -81,8 +102,25 @@ export default function SettingsScreen() {
             />
           </Card>
           <View style={gap} />
+          <Card title="Rota">
+            <SettingsRow
+              label={rotaLabel(pattern)}
+              detail="Shift types and cycle"
+              onPress={() => router.push({ pathname: '/settings/rota' })}
+            />
+          </Card>
+          <View style={gap} />
         </>
       )}
+
+      <Card title="About">
+        <SettingsRow
+          label="About ShiftPay"
+          detail="Disclaimer, version and privacy policy"
+          onPress={() => router.push({ pathname: '/settings/about' })}
+        />
+      </Card>
+      <View style={gap} />
 
       <Disclaimer />
     </Screen>
