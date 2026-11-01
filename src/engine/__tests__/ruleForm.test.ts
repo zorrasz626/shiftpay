@@ -4,7 +4,6 @@ import {
   type RuleFormValues,
   formToRule,
   newRuleForm,
-  parsePoundsToPence,
   ruleFormErrors,
   ruleToForm,
 } from '../ruleForm';
@@ -119,23 +118,6 @@ describe('round trip formToRule(ruleToForm(rule))', () => {
     };
     expect(ruleToForm(rule).weekStartsOn).toBe(1);
     expect(formToRule(ruleToForm(rule), IDS)).toMatchObject({ weekStartsOn: 1 });
-  });
-});
-
-describe('parsePoundsToPence', () => {
-  it('converts digit by digit with no float drift', () => {
-    expect(parsePoundsToPence('1.10')).toBe(110);
-    expect(parsePoundsToPence('1.1')).toBe(110);
-    expect(parsePoundsToPence('0.29')).toBe(29);
-    expect(parsePoundsToPence('4.35')).toBe(435);
-    expect(parsePoundsToPence(' 2 ')).toBe(200);
-  });
-
-  it('rejects malformed or huge amounts', () => {
-    for (const bad of ['', 'abc', '1,50', '0.333', '-1', '£1', '1.', '.5']) {
-      expect(parsePoundsToPence(bad)).toBeNull();
-    }
-    expect(parsePoundsToPence('9'.repeat(20))).toBeNull();
   });
 });
 

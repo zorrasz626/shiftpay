@@ -6,10 +6,14 @@
  * unpaid break in minutes. An end time at or before the start time means the
  * shift ends on the next local day (overnight).
  */
-import { addLocalDays, instantToLocal, localToInstant, minutesBetween } from './time';
+import {
+  addLocalDays,
+  instantToLocal,
+  localToInstant,
+  minutesBetween,
+  WALL_CLOCK_RE,
+} from './time';
 import type { IsoInstant, LocalDate, Shift, WallClockTime } from './types';
-
-const WALL_CLOCK_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 export interface ManualShiftForm {
   /** London date the shift starts on. */

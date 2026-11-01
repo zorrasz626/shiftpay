@@ -18,7 +18,9 @@ import { type AppDb, type StoredJob, createJob, createPremiumRule } from '../job
 import { createPayslip } from '../payslipRepo';
 import { createRotaPattern, createShiftTemplate } from '../rotaRepo';
 import * as schema from '../schema';
-import { setSetting } from '../settingsRepo';
+import { BANK_HOLIDAYS_CHECKED_KEY } from '../../services/bankHolidayRefresh';
+import { BANK_HOLIDAYS_CACHE_KEY } from '../../store/bankHolidaysStore';
+import { getSetting, setSetting } from '../settingsRepo';
 import { createShift } from '../shiftRepo';
 import { createTestDb } from '../testDb';
 
@@ -446,6 +448,27 @@ describe('importBackup', () => {
     await importBackup(target, parsed.backup);
     const after = await exportBackup(target, EXPORTED_AT);
     expect(after.tables.shifts).toEqual(parsed.backup.tables.shifts);
+  });
+
+  it("drops the bank-holiday check time (backup's and device's) but imports the cached data", async () => {
+    const source = createTestDb();
+    await seed(source);
+    const cache = { fetchedAt: '2026-05-01', regions: { scotland: ['2026-05-04'] } };
+    await setSetting(source, BANK_HOLIDAYS_CACHE_KEY, cache);
+    await setSetting(source, BANK_HOLIDAYS_CHECKED_KEY, '2026-05-01T09:00:00.000Z');
+    const file = await exportBackup(source, EXPORTED_AT);
+    expect(file.tables.settings.map((s) => s.key)).toContain(BANK_HOLIDAYS_CHECKED_KEY);
+    const parsed = parseBackup(JSON.parse(JSON.stringify(file)));
+    if (!parsed.ok) throw new Error(parsed.reason);
+
+    const target = createTestDb();
+    await seedOther(target);
+    await setSetting(target, BANK_HOLIDAYS_CHECKED_KEY, '2026-06-30T09:00:00.000Z');
+    await importBackup(target, parsed.backup);
+
+    expect(await getSetting(target, BANK_HOLIDAYS_CHECKED_KEY)).toBeUndefined();
+    expect(await getSetting(target, BANK_HOLIDAYS_CACHE_KEY)).toEqual(cache);
+    expect(await getSetting(target, 'activeJobId')).toBe('job-b');
   });
 
   it('rolls back everything when a later table fails', async () => {

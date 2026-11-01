@@ -6,12 +6,13 @@ import { Button } from '../../src/components/Button';
 import { Chip } from '../../src/components/Chip';
 import { Disclaimer } from '../../src/components/Disclaimer';
 import { Screen } from '../../src/components/Screen';
+import { BANK_HOLIDAY_REGION_OPTIONS } from '../../src/config/bankHolidayRegions';
 import { db } from '../../src/db/client';
 import { PREMIUM_PRESETS, type PremiumPresetId } from '../../src/engine/presets';
 import { instantToLocal } from '../../src/engine/time';
 import { canAddRule } from '../../src/features/pro/gates';
 import { useEntitlement } from '../../src/features/pro/useEntitlement';
-import type { BankHolidayRegion, OvertimePremiumMode } from '../../src/engine/types';
+import type { OvertimePremiumMode } from '../../src/engine/types';
 import { useOnboardingStore } from '../../src/store/onboardingStore';
 import { useTheme } from '../../src/theme/useTheme';
 
@@ -24,12 +25,6 @@ const OVERTIME_MODES: [OvertimePremiumMode, string, string][] = [
     'Add them together',
     'Both extras are added, e.g. 1.5 + 0.25 = 1.75 times your base rate.',
   ],
-];
-
-const REGIONS: [BankHolidayRegion, string][] = [
-  ['england-and-wales', 'England and Wales'],
-  ['scotland', 'Scotland'],
-  ['northern-ireland', 'Northern Ireland'],
 ];
 
 /** Onboarding step 4: premium presets, overtime on a premium hour (D1), bank-holiday region (D5). */
@@ -135,7 +130,7 @@ export default function OnboardingPremiumsScreen() {
         Which bank holidays apply to you?
       </Text>
       <View style={[styles.wrap, { gap: spacing.md, marginBottom: spacing.xl }]}>
-        {REGIONS.map(([region, label]) => (
+        {BANK_HOLIDAY_REGION_OPTIONS.map(([region, label]) => (
           <Chip
             key={region}
             label={label}

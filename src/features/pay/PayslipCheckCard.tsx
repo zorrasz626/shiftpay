@@ -7,27 +7,11 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '../../components/Card';
 import { Chip } from '../../components/Chip';
-import { formatPence } from '../../engine/money';
+import { formatPence, formatSignedPence } from '../../engine/money';
 import type { PayslipCheckView } from '../../engine/payslipCheck';
 import { tabularNums } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
-import { formatHours } from './payView';
-
-const MINUS = '−';
-
-/** `120` -> `+£1.20`, `-1800` -> `−£18.00`, `0` -> `£0.00`. */
-export function formatSignedPence(pence: number): string {
-  if (pence > 0) return `+${formatPence(pence)}`;
-  if (pence < 0) return `${MINUS}${formatPence(-pence)}`;
-  return formatPence(0);
-}
-
-/** `1.5` -> `+1.5 h`, `-2` -> `−2 h`, `0` -> `0 h`. */
-export function formatSignedHours(hours: number): string {
-  const text = formatHours(Math.abs(hours));
-  if (text === formatHours(0)) return text;
-  return `${hours > 0 ? '+' : MINUS}${text}`;
-}
+import { formatHours, formatSignedHours } from './payView';
 
 function Row({ label, value, testID }: { label: string; value: string; testID: string }) {
   const { colors, typography, spacing } = useTheme();

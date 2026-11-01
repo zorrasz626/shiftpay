@@ -4,13 +4,21 @@ import type { CustomerInfo, PurchasesOfferings } from 'react-native-purchases';
 import type { TestInstance } from 'test-renderer';
 
 import CalendarScreen from '../../app/(tabs)/calendar';
+import HolidayScreen from '../../app/holiday';
+import BookHolidayScreen from '../../app/holiday/book';
+import OnboardingJobScreen from '../../app/onboarding/job';
+import OnboardingPayScreen from '../../app/onboarding/pay';
+import OnboardingPremiumsScreen from '../../app/onboarding/premiums';
+import OnboardingRotaScreen from '../../app/onboarding/rota';
 import HomeScreen from '../../app/(tabs)/index';
 import PayScreen from '../../app/(tabs)/pay';
 import SettingsScreen from '../../app/(tabs)/settings';
 import { PaywallView } from '../../app/paywall';
 import PeriodDetailScreen from '../../app/period/[start]';
 import AboutScreen from '../../app/settings/about';
+import JobSettingsScreen from '../../app/settings/job';
 import ReminderSettingsScreen from '../../app/settings/reminders';
+import RuleEditorScreen from '../../app/settings/rule/[id]';
 import PayRulesScreen from '../../app/settings/rules';
 import TaxSettingsScreen from '../../app/settings/tax';
 import { db } from '../db/client';
@@ -28,7 +36,8 @@ import { job, resetStores, shift } from '../store/testFixtures';
 jest.mock('../db/client', () => ({ db: require('../db/testDb').createTestDb() }));
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn(), back: jest.fn(), replace: jest.fn() }),
-  useLocalSearchParams: () => ({ start: '2026-06-15' }),
+  // `start` for the period detail screen, `id` for the rule editor.
+  useLocalSearchParams: () => ({ start: '2026-06-15', id: 'r-night' }),
 }));
 jest.mock('expo-constants', () => ({ __esModule: true, default: { expoConfig: { version: '1.0.0' } } }));
 jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({
@@ -165,6 +174,13 @@ const SCREENS: [string, () => ReactElement][] = [
   ['Reminders', () => <ReminderSettingsScreen />],
   ['Pay rules', () => <PayRulesScreen />],
   ['Tax', () => <TaxSettingsScreen />],
+  ['Onboarding: job', () => <OnboardingJobScreen />],
+  ['Onboarding: pay', () => <OnboardingPayScreen />],
+  ['Onboarding: premiums', () => <OnboardingPremiumsScreen />],
+  ['Onboarding: rota', () => <OnboardingRotaScreen />],
+  ['Job settings', () => <JobSettingsScreen />],
+  ['Book holiday', () => <BookHolidayScreen />],
+  ['Rule editor', () => <RuleEditorScreen />],
 ];
 
 describe('No unlabelled touchables', () => {
@@ -182,6 +198,15 @@ describe('No unlabelled touchables', () => {
     await useProStore.getState().init(client, { apiKey: 'test_key', isDev: false });
     await render(<PaywallView client={client} apiKey="test_key" />);
     await screen.findByRole('radio', { name: /^Annual/ });
+    const { count, unlabelled } = audit();
+    expect(count).toBeGreaterThan(0);
+    expect(unlabelled).toEqual([]);
+  });
+
+  it('Holiday: every operable element has a role and a name', async () => {
+    seedStores();
+    await render(<HolidayScreen />);
+    await screen.findByText('Book holiday');
     const { count, unlabelled } = audit();
     expect(count).toBeGreaterThan(0);
     expect(unlabelled).toEqual([]);

@@ -9,6 +9,7 @@
  */
 import type { BankHolidayLookup } from './bankHolidays';
 import { sumPence } from './money';
+import { isOvertimeHour } from './overtime';
 import { calculateShifts } from './shiftPay';
 import type { DateRange } from './shiftPay';
 import { addLocalDays, localDaysBetween } from './time';
@@ -74,7 +75,9 @@ export function payDate(period: DateRange, job: Job): LocalDate {
  * the same OT week still count to weekly OT. Totals are integer sums of the
  * shift totals; hours are summed minutes / 60. `byRule` has one entry per rule
  * that earned pence or hours, in `rules` order: premium rules by their rule
- * amounts, OT rules by the segments paid under them.
+ * amounts, OT rules by their overtime hours (`isOvertimeHour`: segments the rule
+ * applied to, so an OT rule beaten by a premium in `highest` mode adds no
+ * hours, while a plain-time x1.0 rule has hours at 0p).
  */
 export function aggregatePeriod(
   shifts: Shift[],
@@ -96,7 +99,7 @@ export function aggregatePeriod(
       if (amount !== undefined) {
         pence.push(amount.pence);
         minutes += segment.paidMinutes;
-      } else if (segment.overtimeRuleId === rule.id) {
+      } else if (isOvertimeHour(segment, rule.id)) {
         pence.push(segment.overtimePence);
         minutes += segment.paidMinutes;
       }

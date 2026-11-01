@@ -15,6 +15,7 @@ import { useJobsStore } from '../store/jobsStore';
 import { useRulesStore } from '../store/rulesStore';
 import { useShiftsStore } from '../store/shiftsStore';
 import { job, resetStores, shift } from '../store/testFixtures';
+import { contrastRatio } from '../theme/contrast';
 import { darkColors, lightColors } from '../theme/tokens';
 
 jest.mock('../db/client', () => ({ db: require('../db/testDb').createTestDb() }));
@@ -245,6 +246,21 @@ describe('Stats screen', () => {
       unknown
     >;
     expect(fill.backgroundColor).toBe(colors.signal);
+    // The ink outline is the bar's 3:1 boundary against the track and the card;
+    // an empty (0%) bar has none, so it doesn't show as a 2dp sliver.
+    const fills = screen
+      .getAllByTestId('bar-fill')
+      .map((f) => StyleSheet.flatten(f.props.style) as Record<string, unknown>);
+    const drawn = fills.filter((f) => f.width !== '0%');
+    expect(drawn.length).toBeGreaterThan(0);
+    for (const f of drawn) {
+      expect(f.borderColor).toBe(colors.ink);
+      expect(f.borderWidth).toBeGreaterThanOrEqual(1);
+    }
+    for (const f of fills.filter((x) => x.width === '0%')) expect(f.borderWidth).toBeUndefined();
+    for (const bg of [colors.line, colors.surface, colors.board]) {
+      expect(contrastRatio(colors.ink, bg)).toBeGreaterThanOrEqual(3);
+    }
   });
 });
 

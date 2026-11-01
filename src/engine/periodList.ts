@@ -107,7 +107,7 @@ export interface PeriodDetail {
   payDate: LocalDate;
   /**
    * "Base" first, then premiums, then overtime, each by rule in `rules` order
-   * (as `shiftDetail`); 0p lines dropped.
+   * (as `shiftDetail`); 0p lines dropped, except overtime lines with hours.
    */
   lines: PeriodDetailLine[];
   /** The job's shifts dated in the period, by start; cancelled ones at 0p. */
@@ -141,7 +141,6 @@ export function periodDetail({
     pence: aggregate.basePence,
   };
   const overtimeIds = new Set(rules.filter(isOvertimeRule).map((r) => r.id));
-  const segments = aggregate.shifts.flatMap((b) => b.segments);
   const premiumLines = aggregate.byRule
     .filter((r) => !overtimeIds.has(r.ruleId))
     .map((r): PeriodDetailLine => ({
@@ -151,20 +150,20 @@ export function periodDetail({
       hours: r.hours,
       pence: r.pence,
     }));
-  // OT hours as in `shiftDetail`: only segments that paid OT under the rule.
+  // OT hours are byRule's, i.e. `isOvertimeHour` (same as Stats and shiftDetail).
   const overtimeLines = aggregate.byRule
     .filter((r) => overtimeIds.has(r.ruleId))
     .map((r): PeriodDetailLine => ({
       key: `overtime:${r.ruleId}`,
       label: r.ruleName,
       kind: 'overtime',
-      hours:
-        segments
-          .filter((s) => s.overtimeRuleId === r.ruleId && s.overtimePence !== 0)
-          .reduce((acc, s) => acc + s.paidMinutes, 0) / 60,
+      hours: r.hours,
       pence: r.pence,
     }));
-  const lines = [base, ...premiumLines, ...overtimeLines].filter((l) => l.pence !== 0);
+  // An OT line with hours but 0p (plain-time x1.0 OT) is kept: the hours are real.
+  const lines = [base, ...premiumLines, ...overtimeLines].filter(
+    (l) => l.pence !== 0 || (l.kind === 'overtime' && l.hours !== 0),
+  );
 
   const shiftById = new Map(shifts.filter((s) => s.jobId === job.id).map((s) => [s.id, s]));
   const periodShifts = aggregate.shifts

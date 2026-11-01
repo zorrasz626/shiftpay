@@ -15,7 +15,7 @@
  */
 import type { BankHolidayLookup } from './bankHolidays';
 import { sumPence } from './money';
-import { isOvertimeRule } from './overtime';
+import { isOvertimeHour, isOvertimeRule, overtimeMinutes } from './overtime';
 import { periodsBetween } from './payPeriods';
 import { calculateShifts } from './shiftPay';
 import { addLocalDays, minutesBetween } from './time';
@@ -71,11 +71,6 @@ function nextMonth(month: LocalMonth): LocalMonth {
   return addLocalDays(`${month}-28`, 4).slice(0, 7);
 }
 
-/** OT segments as in `shiftDetail` / `periodDetail`: only those that paid OT pence. */
-function paidOvertime(segment: Segment): boolean {
-  return segment.overtimeRuleId !== undefined && segment.overtimePence !== 0;
-}
-
 function summarise(breakdowns: ShiftBreakdown[], rules: PremiumRule[]): StatsSummary {
   const segments = breakdowns.flatMap((b) => b.segments);
   const sum = (pick: (b: ShiftBreakdown) => number) => sumPence(breakdowns.map(pick));
@@ -87,7 +82,7 @@ function summarise(breakdowns: ShiftBreakdown[], rules: PremiumRule[]): StatsSum
     let minutes = 0;
     for (const segment of segments) {
       if (isOvertimeRule(rule)) {
-        if (segment.overtimeRuleId === rule.id && paidOvertime(segment)) {
+        if (isOvertimeHour(segment, rule.id)) {
           pence.push(segment.overtimePence);
           minutes += segment.paidMinutes;
         }
@@ -111,7 +106,7 @@ function summarise(breakdowns: ShiftBreakdown[], rules: PremiumRule[]): StatsSum
     premiumPence: sum((b) => b.premiumPence),
     overtimePence: sum((b) => b.overtimePence),
     paidHours: minutesOf(segments) / 60,
-    overtimeHours: minutesOf(segments.filter(paidOvertime)) / 60,
+    overtimeHours: overtimeMinutes(segments) / 60,
     byRule,
   };
 }

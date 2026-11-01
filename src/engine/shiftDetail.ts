@@ -13,7 +13,7 @@ import { periodContaining } from './payPeriods';
 import { calculateShifts } from './shiftPay';
 import { instantToLocal } from './time';
 import type { IsoInstant, Job, PremiumRule, Segment, Shift, WallClockTime } from './types';
-import { isOvertimeRule } from './overtime';
+import { isOvertimeHour, isOvertimeRule } from './overtime';
 
 export type ShiftDetailLineKind = 'base' | 'premium' | 'overtime';
 
@@ -42,7 +42,10 @@ export interface ShiftDetailSlice {
 export interface ShiftDetail {
   totalGrossPence: number;
   paidHours: number;
-  /** "Base" first, then premiums by rule, then overtime by rule; 0p lines dropped. */
+  /**
+   * "Base" first, then premiums by rule, then overtime by rule; 0p lines
+   * dropped, except overtime lines with hours.
+   */
   lines: ShiftDetailLine[];
   slices: ShiftDetailSlice[];
 }
@@ -103,7 +106,7 @@ export function shiftDetail({
       `overtime:${rule.id}`,
       rule.name,
       'overtime',
-      segments.filter((s) => s.overtimeRuleId === rule.id && s.overtimePence !== 0),
+      segments.filter((s) => isOvertimeHour(s, rule.id)),
       (s) => s.overtimePence,
     ),
   );
@@ -111,14 +114,14 @@ export function shiftDetail({
     line('base', 'Base', 'base', segments, (s) => s.basePence),
     ...premiumLines,
     ...overtimeLines,
-  ].filter((l) => l.pence !== 0);
+  ].filter((l) => l.pence !== 0 || (l.kind === 'overtime' && l.hours !== 0));
 
   const ruleNames = new Map(jobRules.map((r) => [r.id, r.name]));
   const slices = segments.map((s): ShiftDetailSlice => {
     const labels = s.ruleAmounts
       .filter((a) => a.pence !== 0)
       .map((a) => ruleNames.get(a.ruleId) as string);
-    if (s.overtimePence !== 0) labels.push(ruleNames.get(s.overtimeRuleId as string) as string);
+    if (isOvertimeHour(s)) labels.push(ruleNames.get(s.overtimeRuleId as string) as string);
     return {
       start: s.start,
       end: s.end,

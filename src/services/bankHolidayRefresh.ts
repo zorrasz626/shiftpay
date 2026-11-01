@@ -7,6 +7,7 @@
  */
 import { z } from 'zod';
 
+import { BANK_HOLIDAY_REGION_IDS } from '../config/bankHolidayRegions';
 import type { AppDb } from '../db/jobRepo';
 import { getSetting, setSetting } from '../db/settingsRepo';
 import { instantToLocal, minutesBetween } from '../engine/time';
@@ -32,8 +33,6 @@ const govUkSchema = z.object({
   'northern-ireland': division,
 });
 
-const REGIONS: BankHolidayRegion[] = ['england-and-wales', 'scotland', 'northern-ireland'];
-
 /** gov.uk JSON -> `BankHolidayData` (dates sorted, de-duplicated); null if any region is missing or invalid. */
 export function parseGovUkBankHolidays(json: unknown, fetchedAt: LocalDate): BankHolidayData | null {
   const parsed = govUkSchema.safeParse(json);
@@ -43,7 +42,7 @@ export function parseGovUkBankHolidays(json: unknown, fetchedAt: LocalDate): Ban
     scotland: [],
     'northern-ireland': [],
   };
-  for (const region of REGIONS) {
+  for (const region of BANK_HOLIDAY_REGION_IDS) {
     regions[region] = [...new Set(parsed.data[region].events.map((e) => e.date))].sort();
   }
   return { fetchedAt, regions };

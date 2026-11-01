@@ -31,6 +31,27 @@ export function isOvertimeRule(rule: PremiumRule): rule is OvertimeRule {
   return rule.type === 'overtime_daily' || rule.type === 'overtime_weekly' || rule.type === 'overtime_period';
 }
 
+/**
+ * The one definition of an overtime hour (F3), used by every OT-hours figure
+ * (`aggregatePeriod` byRule, `periodDetail`, `shiftDetail`, `monthlyStats`):
+ * a segment's paid minutes are OT when its OT rule (`ruleId` if given)
+ * applied, i.e. paid the hours. That is decided by the rule, not by pence: a
+ * plain-time x1.0 rule adds 0p but its hours are still overtime, as a payslip
+ * lists them. In D1 `highest` mode a premium that beats OT pays those
+ * over-threshold hours instead (`premiumBeatOvertime`), so they are not OT
+ * hours: a payslip lists them on the premium line (e.g. Sunday), not on the
+ * overtime-hours line. In `replace` and `stack` OT always applies.
+ */
+export function isOvertimeHour(segment: Segment, ruleId?: string): boolean {
+  if (segment.overtimeRuleId === undefined || segment.premiumBeatOvertime === true) return false;
+  return ruleId === undefined || segment.overtimeRuleId === ruleId;
+}
+
+/** Paid minutes of `segments` that are overtime hours (see `isOvertimeHour`). */
+export function overtimeMinutes(segments: Segment[], ruleId?: string): number {
+  return segments.reduce((acc, s) => (isOvertimeHour(s, ruleId) ? acc + s.paidMinutes : acc), 0);
+}
+
 function beats(a: OvertimeRule, b: OvertimeRule, basePence: number): boolean {
   const ua = upliftPerHour(a, basePence);
   const ub = upliftPerHour(b, basePence);
@@ -112,11 +133,14 @@ function payOvertime(segment: Segment, rule: OvertimeRule, job: Job, rules: Prem
   } else if (mode === 'highest') {
     overtimePence = 0;
   }
+  // Recorded only, pence above are unchanged: a premium out-bid OT on these hours.
+  const premiumWins = mode === 'highest' && segment.ruleAmounts.length > 0 && !(otUplift > premiumUplift);
   const premiumPence = sumPence(ruleAmounts.map((r) => r.pence));
   return {
     ...segment,
     isOvertime: true,
     overtimeRuleId: rule.id,
+    ...(premiumWins ? { premiumBeatOvertime: true as const } : {}),
     ruleAmounts,
     premiumPence,
     overtimePence,

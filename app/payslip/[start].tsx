@@ -19,7 +19,6 @@ import { Screen } from '../../src/components/Screen';
 import { TextField } from '../../src/components/TextField';
 import { db } from '../../src/db/client';
 import { formatPence, parsePoundsToPence } from '../../src/engine/money';
-import { periodContaining } from '../../src/engine/payPeriods';
 import { payslipCheck } from '../../src/engine/payslipCheck';
 import {
   type PayslipFormField,
@@ -36,7 +35,7 @@ import { periodDetail } from '../../src/engine/periodList';
 import { instantToLocal } from '../../src/engine/time';
 import type { Job, LocalDate, Payslip, PayslipLine } from '../../src/engine/types';
 import type { PayslipReportInput } from '../../src/features/export/payslipReport';
-import { periodRangeLabel } from '../../src/features/pay/payView';
+import { loadedPeriodAt, periodRangeLabel } from '../../src/features/pay/payView';
 import { hasFeature } from '../../src/features/pro/gates';
 import { useEntitlement } from '../../src/features/pro/useEntitlement';
 import {
@@ -52,8 +51,6 @@ import { useRulesStore } from '../../src/store/rulesStore';
 import { useShiftsStore } from '../../src/store/shiftsStore';
 import { tabularNums } from '../../src/theme/tokens';
 import { useTheme } from '../../src/theme/useTheme';
-
-const LOCAL_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 type TopField = Exclude<PayslipFormField, 'lineLabel' | 'lineHours' | 'lineAmount'>;
 
@@ -445,12 +442,7 @@ export default function PayslipScreen() {
   const [newPayslipId] = useState(() => newId('payslip'));
 
   // Same rule as the period detail: a real period start whose whole period is loaded.
-  const period = useMemo(() => {
-    if (job === undefined || range === null || typeof start !== 'string') return null;
-    if (!LOCAL_DATE.test(start)) return null;
-    const p = periodContaining(start, job);
-    return p.start === start && p.start >= range.start && p.end <= range.end ? p : null;
-  }, [job, range, start]);
+  const period = useMemo(() => loadedPeriodAt(start, job, range), [job, range, start]);
 
   if (job === undefined || period === null) {
     return (

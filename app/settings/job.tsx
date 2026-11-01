@@ -12,10 +12,11 @@ import { Chip } from '../../src/components/Chip';
 import { Disclaimer } from '../../src/components/Disclaimer';
 import { Screen } from '../../src/components/Screen';
 import { TextField } from '../../src/components/TextField';
+import { BANK_HOLIDAY_REGION_OPTIONS } from '../../src/config/bankHolidayRegions';
 import { db } from '../../src/db/client';
 import type { StoredJob } from '../../src/db/jobRepo';
 import { validatePaySchedule } from '../../src/engine/paySchedule';
-import type { BankHolidayRegion, OvertimePremiumMode } from '../../src/engine/types';
+import type { OvertimePremiumMode } from '../../src/engine/types';
 import { useJobsStore } from '../../src/store/jobsStore';
 import {
   type FieldErrors,
@@ -34,12 +35,6 @@ const OVERTIME_MODES: [OvertimePremiumMode, string, string][] = [
     'Add them together',
     'Both extras are added, e.g. 1.5 + 0.25 = 1.75 times your base rate.',
   ],
-];
-
-const REGIONS: [BankHolidayRegion, string][] = [
-  ['england-and-wales', 'England and Wales'],
-  ['scotland', 'Scotland'],
-  ['northern-ireland', 'Northern Ireland'],
 ];
 
 const CUTOFF_RE = /^\d{1,2}$/;
@@ -146,7 +141,7 @@ function JobForm({ job }: { job: StoredJob }) {
         Which bank holidays apply to you?
       </Text>
       <View style={[styles.wrap, { gap: spacing.md, marginBottom: spacing.xl }]}>
-        {REGIONS.map(([value, label]) => (
+        {BANK_HOLIDAY_REGION_OPTIONS.map(([value, label]) => (
           <Chip
             key={value}
             label={label}

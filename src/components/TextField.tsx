@@ -13,7 +13,10 @@ export type TextFieldProps = {
   readonly error?: string;
   /** Hint shown below the input in inkMuted caption (hidden while there is an error). */
   readonly helper?: string;
+  /** Spoken after the label; while there is an error, the error is spoken first. */
   readonly accessibilityHint?: string;
+  /** Called when the input loses focus (e.g. to start showing empty-field errors). */
+  readonly onBlur?: () => void;
 };
 
 /** Labelled text input on a surface with a 1px line border; min height 48. */
@@ -26,9 +29,13 @@ export function TextField({
   error,
   helper,
   accessibilityHint,
+  onBlur,
 }: TextFieldProps) {
   const { colors, typography, spacing, radius } = useTheme();
   const hasError = error !== undefined && error !== '';
+  const hint = hasError
+    ? [error, accessibilityHint].filter((part) => part !== undefined && part !== '').join('. ')
+    : accessibilityHint;
 
   return (
     <View style={{ marginBottom: spacing.lg }}>
@@ -37,9 +44,10 @@ export function TextField({
       </Text>
       <TextInput
         accessibilityLabel={label}
-        accessibilityHint={accessibilityHint}
+        accessibilityHint={hint}
         value={value}
         onChangeText={onChangeText}
+        onBlur={onBlur}
         keyboardType={keyboardType}
         placeholder={placeholder}
         placeholderTextColor={colors.inkMuted}

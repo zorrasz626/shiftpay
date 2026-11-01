@@ -11,10 +11,11 @@ import { db } from '../../src/db/client';
 import type { PayFrequency } from '../../src/engine/types';
 import { instantToLocal } from '../../src/engine/time';
 import {
+  FIX_HINT,
   formatLongDate,
-  isPayStepValid,
   payStepErrors,
   useOnboardingStore,
+  useStepErrors,
 } from '../../src/store/onboardingStore';
 import { useTheme } from '../../src/theme/useTheme';
 
@@ -32,13 +33,16 @@ export default function OnboardingPayScreen() {
   const draft = useOnboardingStore();
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const errors = payStepErrors(draft);
-  const valid = isPayStepValid(draft);
+  const { errors, valid, touch, showAll } = useStepErrors(payStepErrors, draft);
   const monthly = draft.payFrequency === 'monthly';
   const payDateWords = formatLongDate(draft.nextPayDate);
   const endDateWords = formatLongDate(draft.periodEndDate);
 
   async function onContinue() {
+    if (!valid) {
+      showAll();
+      return;
+    }
     setSaving(true);
     setSaveError(null);
     try {
@@ -62,7 +66,12 @@ export default function OnboardingPayScreen() {
             <Button label="Back" variant="secondary" onPress={() => router.back()} />
           </View>
           <View style={styles.fill}>
-            <Button label="Continue" disabled={!valid || saving} onPress={onContinue} />
+            <Button
+              label="Continue"
+              disabled={saving}
+              accessibilityHint={valid ? undefined : FIX_HINT}
+              onPress={onContinue}
+            />
           </View>
         </View>
       }
@@ -93,6 +102,7 @@ export default function OnboardingPayScreen() {
         keyboardType="numbers-and-punctuation"
         placeholder="YYYY-MM-DD"
         error={errors.nextPayDate}
+        onBlur={() => touch('nextPayDate')}
         helper={payDateWords ?? 'For example, 2026-11-06'}
       />
 
@@ -104,6 +114,7 @@ export default function OnboardingPayScreen() {
           keyboardType="number-pad"
           placeholder="31"
           error={errors.periodCutoffDay}
+          onBlur={() => touch('periodCutoffDay')}
           helper="The last day of each month's pay period. Use 31 for the end of the month."
         />
       ) : (
@@ -114,6 +125,7 @@ export default function OnboardingPayScreen() {
           keyboardType="numbers-and-punctuation"
           placeholder="YYYY-MM-DD"
           error={errors.periodEndDate}
+          onBlur={() => touch('periodEndDate')}
           helper={endDateWords ?? 'Often the same as the pay date, or a few days before it.'}
         />
       )}

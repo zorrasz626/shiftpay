@@ -232,6 +232,12 @@ export interface Segment extends SegmentSlice {
   isOvertime: boolean;
   /** The overtime rule this segment's OT is paid under (set when isOvertime). */
   overtimeRuleId?: string;
+  /**
+   * D1 `highest` only: true when the segment's premiums out-bid its OT rule,
+   * so the premiums are paid and no OT (`overtimePence` 0). Such hours are over
+   * the threshold but are not overtime hours (`isOvertimeHour`). Absent otherwise.
+   */
+  premiumBeatOvertime?: true;
   /** Premium/overtime rules applied to this segment, with their pence. */
   ruleAmounts: RuleAmount[];
   basePence: number;

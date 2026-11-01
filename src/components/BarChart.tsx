@@ -22,6 +22,7 @@ export type BarChartProps = {
 
 const BAR_HEIGHT = 12;
 const LABEL_WIDTH = 72;
+const BAR_OUTLINE = 1;
 
 /**
  * Horizontal bar chart from plain Views (no native chart dependency): one
@@ -58,6 +59,9 @@ export function BarChart({ bars, testID }: BarChartProps) {
                     backgroundColor: colors.signal,
                     borderRadius: radius.chip,
                   },
+                  // The light signal yellow is below 3:1 on the track, so an ink outline
+                  // gives the bar its 3:1 boundary (WCAG 1.4.11). An empty bar stays empty.
+                  ratio > 0 && { borderWidth: BAR_OUTLINE, borderColor: colors.ink },
                 ]}
               />
             </View>

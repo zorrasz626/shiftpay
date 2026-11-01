@@ -7,29 +7,23 @@ import { Chip } from '../../src/components/Chip';
 import { Disclaimer } from '../../src/components/Disclaimer';
 import { Screen } from '../../src/components/Screen';
 import { TextField } from '../../src/components/TextField';
+import { DAY_SHORT, MONDAY_FIRST } from '../../src/engine/calendarMonth';
 import { ROTA_PRESETS } from '../../src/engine/presets';
 import { instantToLocal } from '../../src/engine/time';
 import type { DayOfWeek } from '../../src/engine/types';
 import {
   endsNextDay,
+  FIX_HINT,
   formatLongDate,
-  isRotaStepValid,
   rotaPreview,
   rotaStepErrors,
   useOnboardingStore,
+  useStepErrors,
 } from '../../src/store/onboardingStore';
 import { useTheme } from '../../src/theme/useTheme';
 
 /** Monday first, as UK rotas are usually written. */
-const WEEK: [DayOfWeek, string][] = [
-  [1, 'Mon'],
-  [2, 'Tue'],
-  [3, 'Wed'],
-  [4, 'Thu'],
-  [5, 'Fri'],
-  [6, 'Sat'],
-  [0, 'Sun'],
-];
+const WEEK: [DayOfWeek, string][] = MONDAY_FIRST.map((d) => [d, DAY_SHORT[d]]);
 
 /** Onboarding step 3: rota preset, shift times, unpaid break and the first day on. */
 export default function OnboardingRotaScreen() {
@@ -37,8 +31,7 @@ export default function OnboardingRotaScreen() {
   const { colors, typography, spacing } = useTheme();
   const draft = useOnboardingStore();
   const today = instantToLocal(new Date().toISOString()).date;
-  const errors = rotaStepErrors(draft);
-  const valid = isRotaStepValid(draft);
+  const { errors, valid, touch, showAll } = useStepErrors(rotaStepErrors, draft);
   const custom = draft.rotaPreset === 'custom_weekly';
   const overnight = endsNextDay(draft.shiftStart, draft.shiftEnd);
   const firstDayWords = formatLongDate(draft.firstDayOn);
@@ -50,6 +43,14 @@ export default function OnboardingRotaScreen() {
     // Pre-fill once on arrival; clearing the field later must not refill it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function onContinue() {
+    if (!valid) {
+      showAll();
+      return;
+    }
+    router.push('/onboarding/premiums');
+  }
 
   return (
     <Screen
@@ -64,8 +65,8 @@ export default function OnboardingRotaScreen() {
           <View style={styles.fill}>
             <Button
               label="Continue"
-              disabled={!valid}
-              onPress={() => router.push('/onboarding/premiums')}
+              accessibilityHint={valid ? undefined : FIX_HINT}
+              onPress={onContinue}
             />
           </View>
         </View>
@@ -124,6 +125,7 @@ export default function OnboardingRotaScreen() {
         keyboardType="numbers-and-punctuation"
         placeholder="09:00"
         error={errors.shiftStart}
+        onBlur={() => touch('shiftStart')}
         helper="24-hour clock, for example 07:00 or 19:00"
       />
       <TextField
@@ -133,6 +135,7 @@ export default function OnboardingRotaScreen() {
         keyboardType="numbers-and-punctuation"
         placeholder="17:00"
         error={errors.shiftEnd}
+        onBlur={() => touch('shiftEnd')}
         helper={overnight ? 'Ends next day' : undefined}
       />
       <TextField
@@ -142,6 +145,7 @@ export default function OnboardingRotaScreen() {
         keyboardType="number-pad"
         placeholder="30"
         error={errors.unpaidBreak}
+        onBlur={() => touch('unpaidBreak')}
         helper="Use 0 if your breaks are paid"
       />
       <TextField
@@ -151,6 +155,7 @@ export default function OnboardingRotaScreen() {
         keyboardType="numbers-and-punctuation"
         placeholder="YYYY-MM-DD"
         error={errors.firstDayOn}
+        onBlur={() => touch('firstDayOn')}
         helper={firstDayWords ?? 'The first day of your rota, for example 2026-11-02'}
       />
 

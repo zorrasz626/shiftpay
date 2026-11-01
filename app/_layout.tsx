@@ -21,6 +21,12 @@ import { bootstrap } from '../src/store/bootstrap';
 import { useTheme } from '../src/theme/useTheme';
 
 export const ERROR_TITLE = 'Something went wrong';
+/**
+ * Start-up watchdog: if migrations, the data load and fonts haven't finished
+ * by then, show the error screen (Try again) instead of an endless splash.
+ * Generous, so a slow first-run migration on an old phone isn't cut short.
+ */
+export const STARTUP_TIMEOUT_MS = 20_000;
 export const ERROR_TEXT =
   'ShiftPay hit a problem. Try again, and if it keeps happening, close and reopen the app.';
 
@@ -73,6 +79,16 @@ function Boot({ onRetry }: { onRetry: () => void }) {
     BarlowCondensed_600SemiBold,
   });
   const fontsReady = fontsLoaded || fontError != null;
+  const ready = success && booted && fontsReady;
+  const [timedOut, setTimedOut] = useState(false);
+
+  // Watchdog: started on mount (each Try again remounts Boot), cleared once
+  // ready. A late success after the timeout still renders the app below.
+  useEffect(() => {
+    if (ready) return;
+    const timer = setTimeout(() => setTimedOut(true), STARTUP_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [ready]);
 
   // Once migrations succeed: materialise shifts and load the stores, once.
   // A materialisation error is handled inside bootstrap and never blocks start-up.
@@ -123,9 +139,12 @@ function Boot({ onRetry }: { onRetry: () => void }) {
     return <ErrorScreen detail={`Loading data failed: ${bootError.message}`} onRetry={onRetry} />;
   }
 
-  // Still migrating, loading data or loading fonts: render nothing so the
-  // splash screen stays up.
-  if (!success || !booted || !fontsReady) {
+  if (!ready) {
+    if (timedOut) {
+      return <ErrorScreen detail="Start-up timed out" onRetry={onRetry} />;
+    }
+    // Still migrating, loading data or loading fonts: render nothing so the
+    // splash screen stays up.
     return null;
   }
 

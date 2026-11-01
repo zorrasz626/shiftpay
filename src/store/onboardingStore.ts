@@ -5,6 +5,7 @@
  * The rota (step 3) and extra pay (step 4) choices stay in the draft until
  * `finishOnboarding` saves them.
  */
+import { useState } from 'react';
 import { create } from 'zustand';
 
 import type { AppDb, StoredJob } from '../db/jobRepo';
@@ -15,6 +16,7 @@ import {
   type PayScheduleError,
   type PayScheduleInput,
 } from '../engine/paySchedule';
+import { DAY_NAMES, DAY_SHORT, MONTH_NAMES } from '../engine/calendarMonth';
 import { FIXED_LENGTH_DAYS, monthlyPeriod } from '../engine/payPeriods';
 import {
   buildPremiumRules,
@@ -23,7 +25,7 @@ import {
   type RotaPresetId,
 } from '../engine/presets';
 import { generateShifts } from '../engine/rota';
-import { addLocalDays, instantToLocal, startOfLocalDay } from '../engine/time';
+import { addLocalDays, instantToLocal, startOfLocalDay, WALL_CLOCK_RE } from '../engine/time';
 import type {
   BankHolidayRegion,
   DayOfWeek,
@@ -110,7 +112,6 @@ export type RotaStepField = 'shiftStart' | 'shiftEnd' | 'unpaidBreak' | 'firstDa
 const RATE_RE = /^£?\s*(\d{1,6})(?:\.(\d{1,2}))?$/;
 const CUTOFF_RE = /^\d{1,2}$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const BREAK_RE = /^\d{1,3}$/;
 const MAX_BREAK_MINUTES = 240;
 const MINUTES_PER_DAY = 24 * 60;
@@ -129,23 +130,6 @@ export const MESSAGES = {
   breakTooLong: 'The break must be shorter than the shift',
   pickDays: 'Pick at least one day you work',
 } as const;
-
-const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const SHORT_DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTH_NAMES = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-];
 
 /** "12.21" / "£12.21" / "12" / "12.5" to integer pence; null if not a positive amount with at most 2 dp. */
 export function parseRateToPence(text: string): number | null {
@@ -178,7 +162,7 @@ export function formatLongDate(text: string): string | null {
 
 /** True if `text` is a 24-hour time written HH:mm, e.g. "09:00" or "23:30". */
 export function isValidTime(text: string): boolean {
-  return TIME_RE.test(text);
+  return WALL_CLOCK_RE.test(text);
 }
 
 function timeToMinutes(time: string): number {
@@ -349,10 +333,49 @@ export function isRotaStepValid(draft: OnboardingDraft): boolean {
   return Object.keys(rotaStepErrors(draft, true)).length === 0;
 }
 
+/** Spoken on Continue while a step has errors: pressing it reveals them instead of advancing. */
+export const FIX_HINT = 'Shows what still needs filling in or fixing';
+
+/** What a step screen shows: its visible errors, whether it may advance, and the triggers. */
+export interface StepErrors<K extends string> {
+  /** Messages to show now, by field. */
+  readonly errors: FieldErrors<K>;
+  /** True when the step has no errors at all, empty fields included. */
+  readonly valid: boolean;
+  /** Call on blur: from now on this field shows its empty-field message too. */
+  readonly touch: (field: K) => void;
+  /** Call when Continue is pressed on an invalid step: every field shows its message. */
+  readonly showAll: () => void;
+}
+
+/**
+ * Field errors for one onboarding step. A typed-in invalid value shows its message at once;
+ * an empty required field shows it only after the user leaves the field, or after pressing
+ * Continue (which then shows every error).
+ */
+export function useStepErrors<K extends string>(
+  errorsFor: (draft: OnboardingDraft, showEmpty?: boolean) => FieldErrors<K>,
+  draft: OnboardingDraft,
+): StepErrors<K> {
+  const [touched, setTouched] = useState<ReadonlySet<K>>(() => new Set());
+  const [everyField, setEveryField] = useState(false);
+  const all = errorsFor(draft, true);
+  const errors: FieldErrors<K> = { ...errorsFor(draft) };
+  for (const field of Object.keys(all) as K[]) {
+    if (everyField || touched.has(field)) errors[field] = all[field];
+  }
+  return {
+    errors,
+    valid: Object.keys(all).length === 0,
+    touch: (field) => setTouched((prev) => (prev.has(field) ? prev : new Set(prev).add(field))),
+    showAll: () => setEveryField(true),
+  };
+}
+
 /** "Mon 2" for 2026-11-02. */
 function shortDay(date: LocalDate): string {
   const weekday = instantToLocal(startOfLocalDay(date)).dayOfWeek;
-  return `${SHORT_DAY_NAMES[weekday]} ${Number(date.slice(8))}`;
+  return `${DAY_SHORT[weekday]} ${Number(date.slice(8))}`;
 }
 
 /**
@@ -416,7 +439,13 @@ export const useOnboardingStore = create<OnboardingState>()((set, get) => ({
   jobId: undefined,
   setName: (name) => set({ name }),
   setBaseRateText: (baseRateText) => set({ baseRateText }),
-  setPayFrequency: (payFrequency) => set({ payFrequency }),
+  // D6: a monthly schedule with no cut-off yet starts at 31 (the end of each month).
+  setPayFrequency: (payFrequency) =>
+    set((s) =>
+      payFrequency === 'monthly' && s.periodCutoffDay.trim() === ''
+        ? { payFrequency, periodCutoffDay: '31' }
+        : { payFrequency },
+    ),
   setNextPayDate: (nextPayDate) =>
     set((s) =>
       s.periodEndDate === s.nextPayDate

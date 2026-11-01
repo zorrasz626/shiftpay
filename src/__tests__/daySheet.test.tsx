@@ -12,6 +12,7 @@ import { daySheetTitle } from '../features/calendar/DaySheet';
 import { useJobsStore } from '../store/jobsStore';
 import { useShiftsStore } from '../store/shiftsStore';
 import { job, resetStores, shift } from '../store/testFixtures';
+import { contrastRatio } from '../theme/contrast';
 import { darkColors, lightColors, spacing } from '../theme/tokens';
 
 jest.mock('../db/client', () => ({ db: require('../db/testDb').createTestDb() }));
@@ -310,6 +311,14 @@ describe('Day sheet', () => {
     const worked = card('p-1').getByRole('button', { name: 'Worked' });
     expect(styleOf(worked).backgroundColor).toBe(colors.signal);
     expect(styleOf(worked).minHeight).toBe(48);
+    expect(worked).toBeSelected();
+    // Non-colour cue: a thicker ink border that meets 3:1 on the sheet.
+    expect(styleOf(worked).borderColor).toBe(colors.ink);
+    expect(styleOf(worked).borderWidth).toBe(2);
+    expect(contrastRatio(colors.ink, colors.surface)).toBeGreaterThanOrEqual(3);
+    const sick = card('p-1').getByRole('button', { name: 'Sick' });
+    expect(sick).not.toBeSelected();
+    expect(styleOf(sick).borderWidth).toBe(1);
     expect(styleOf(card('p-1').getByRole('button', { name: 'Sick' })).backgroundColor).toBe(
       colors.surface,
     );

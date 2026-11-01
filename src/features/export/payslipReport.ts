@@ -5,11 +5,12 @@
  * Money stays integer pence until it is formatted here, once, for output.
  */
 import { DISCLAIMER } from '../../config/disclaimer';
-import { formatPence } from '../../engine/money';
+import { formatPence, formatSignedPence } from '../../engine/money';
 import type { PayslipCheckView } from '../../engine/payslipCheck';
 import type { PeriodDetail, PeriodDetailLineKind } from '../../engine/periodList';
 import { instantToLocal } from '../../engine/time';
 import type { LocalDate, ShiftStatus } from '../../engine/types';
+import { formatSignedHours } from '../pay/payView';
 
 export interface PayslipReportInput {
   /** The user's own job name (never an employer name from the app). */
@@ -24,8 +25,6 @@ export interface PayslipReportInput {
 export type PayslipReportExt = 'csv' | 'pdf';
 
 export const REPORT_TITLE = 'ShiftPay payslip check';
-
-const MINUS = '−';
 
 const STATUS_LABEL: Record<ShiftStatus, string> = {
   planned: 'Planned',
@@ -151,23 +150,9 @@ export function escapeHtml(text: string): string {
   return text.replace(/[&<>"']/g, (ch) => HTML_ESCAPES[ch]);
 }
 
-/** `120` -> `+£1.20`, `-1800` -> `−£18.00`, `0` -> `£0.00` (as the result card). */
-function signedPence(pence: number): string {
-  if (pence > 0) return `+${formatPence(pence)}`;
-  if (pence < 0) return `${MINUS}${formatPence(-pence)}`;
-  return formatPence(0);
-}
-
 /** `7.5` -> `7.5 h`. */
 function hoursText(hours: number): string {
   return `${hoursNumber(hours)} h`;
-}
-
-/** `1.5` -> `+1.5 h`, `-2` -> `−2 h`, `0` -> `0 h`. */
-function signedHours(hours: number): string {
-  const text = hoursText(Math.abs(hours));
-  if (text === hoursText(0)) return text;
-  return `${hours > 0 ? '+' : MINUS}${text}`;
 }
 
 function cell(text: string, numeric = false): string {
@@ -204,7 +189,7 @@ export function buildPayslipHtml(input: PayslipReportInput): string {
   const summaryRows = [
     `<tr><td>Expected</td>${cell(formatPence(check.expectedPence), true)}${cell(hoursText(check.expectedHours), true)}</tr>`,
     `<tr><td>Paid</td>${cell(formatPence(check.paidPence), true)}${cell(hasHours ? hoursText(check.paidHours as number) : '', true)}</tr>`,
-    `<tr class="total"><td>Difference</td>${cell(signedPence(check.diffPence), true)}${cell(hasHours ? signedHours(check.diffHours as number) : '', true)}</tr>`,
+    `<tr class="total"><td>Difference</td>${cell(formatSignedPence(check.diffPence), true)}${cell(hasHours ? formatSignedHours(check.diffHours as number) : '', true)}</tr>`,
   ];
 
   const lineRows = detail.lines.map(

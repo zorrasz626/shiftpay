@@ -14,6 +14,7 @@ import { Card } from '../../src/components/Card';
 import { Disclaimer } from '../../src/components/Disclaimer';
 import { ProUpsell } from '../../src/components/ProUpsell';
 import { Screen } from '../../src/components/Screen';
+import { DAY_SHORT, MONDAY_FIRST } from '../../src/engine/calendarMonth';
 import { formatPence } from '../../src/engine/money';
 import { FREE_LIMITS, canAddRule } from '../../src/features/pro/gates';
 import { useEntitlement } from '../../src/features/pro/useEntitlement';
@@ -24,15 +25,7 @@ import { tabularNums } from '../../src/theme/tokens';
 import { useTheme } from '../../src/theme/useTheme';
 
 /** Monday first, as UK rotas are usually written. */
-export const WEEK: [DayOfWeek, string][] = [
-  [1, 'Mon'],
-  [2, 'Tue'],
-  [3, 'Wed'],
-  [4, 'Thu'],
-  [5, 'Fri'],
-  [6, 'Sat'],
-  [0, 'Sun'],
-];
+export const WEEK: [DayOfWeek, string][] = MONDAY_FIRST.map((d) => [d, DAY_SHORT[d]]);
 
 const DAY_PLURALS: Record<DayOfWeek, string> = {
   0: 'Sundays',

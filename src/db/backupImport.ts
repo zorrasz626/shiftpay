@@ -19,6 +19,7 @@ import {
   SCHEMA_VERSION,
 } from './backup';
 import type { RotaDay } from '../engine/types';
+import { BANK_HOLIDAYS_CHECKED_KEY } from '../services/bankHolidayRefresh';
 import type { AppDb } from './jobRepo';
 import * as schema from './schema';
 
@@ -308,8 +309,22 @@ export function parseBackup(input: unknown): ParseBackupResult {
 const MAX_VARIABLES_PER_INSERT = 900;
 
 /**
+ * Settings that describe the device that wrote them, not the user's data: never
+ * imported. The bank-holiday check time is dropped (the device's own value is
+ * cleared too) because the imported cache may be older than the device's, so
+ * the next start-up should check gov.uk instead of waiting up to 7 days.
+ */
+const DEVICE_LOCAL_SETTINGS: ReadonlySet<string> = new Set([BANK_HOLIDAYS_CHECKED_KEY]);
+
+function rowsToImport(backup: Backup, name: BackupTableName): Record<string, unknown>[] {
+  if (name !== 'settings') return backup.tables[name];
+  return backup.tables.settings.filter((row) => !DEVICE_LOCAL_SETTINGS.has(row.key));
+}
+
+/**
  * Replaces every table with the backup's rows in ONE transaction: delete
  * children first, insert parents first, in chunks. Any error rolls back.
+ * Device-local settings (`DEVICE_LOCAL_SETTINGS`) are skipped.
  */
 export async function importBackup(db: AppDb, backup: Backup): Promise<void> {
   db.transaction((tx) => {
@@ -318,7 +333,7 @@ export async function importBackup(db: AppDb, backup: Backup): Promise<void> {
     }
     for (const name of BACKUP_TABLE_ORDER) {
       const table = tablesByName[name];
-      const rows = backup.tables[name] as (typeof table)['$inferInsert'][];
+      const rows = rowsToImport(backup, name) as (typeof table)['$inferInsert'][];
       const chunkSize = Math.max(
         1,
         Math.floor(MAX_VARIABLES_PER_INSERT / Object.keys(getTableColumns(table)).length),

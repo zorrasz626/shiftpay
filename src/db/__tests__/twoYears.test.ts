@@ -174,8 +174,10 @@ describe('screen derivations on two years of data', () => {
     });
     expect(stats.months).toHaveLength(24);
     expect(stats.hasData).toBe(true);
-    expect(twelve).toBeLessThan(200);
-    expect(all).toBeLessThan(400);
+    // Measured ~50 / ~100 ms alone, ~200 ms under parallel suites; the
+    // regression this guards against took 1181 / 2320 ms.
+    expect(twelve).toBeLessThan(500);
+    expect(all).toBeLessThan(1000);
   });
 
   it('Calendar: every month of the window < 100 ms in total', async () => {

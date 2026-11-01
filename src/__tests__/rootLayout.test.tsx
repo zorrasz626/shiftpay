@@ -1,6 +1,11 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
-import RootLayout, { ERROR_TEXT, ERROR_TITLE, ErrorBoundary } from '../../app/_layout';
+import RootLayout, {
+  ERROR_TEXT,
+  ERROR_TITLE,
+  ErrorBoundary,
+  STARTUP_TIMEOUT_MS,
+} from '../../app/_layout';
 
 type Migrations = { success: boolean; error?: Error };
 let mockMigrations: Migrations = { success: true };
@@ -118,5 +123,70 @@ describe('Root layout start-up', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
     await waitFor(() => expect(mockBootstrap).toHaveBeenCalledTimes(2));
     expect(await screen.findByText('App stack')).toBeTruthy();
+  });
+});
+
+describe('Root layout start-up watchdog', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  async function advance(ms: number): Promise<void> {
+    await act(async () => {
+      jest.advanceTimersByTime(ms);
+    });
+  }
+
+  it('shows the error screen when migrations hang; Try again runs start-up again', async () => {
+    mockMigrations = { success: false };
+    await render(<RootLayout />);
+
+    await advance(STARTUP_TIMEOUT_MS - 1);
+    expect(screen.queryByText(ERROR_TEXT)).toBeNull();
+    expect(screen.queryByText('App stack')).toBeNull();
+
+    await advance(1);
+    expect(screen.getByRole('header', { name: ERROR_TITLE })).toBeTruthy();
+    expect(screen.getByTestId('error-detail')).toHaveTextContent('Start-up timed out');
+    expect(mockBootstrap).not.toHaveBeenCalled();
+
+    mockMigrations = { success: true };
+    await fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByText('App stack')).toBeTruthy();
+    expect(mockBootstrap).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(ERROR_TITLE)).toBeNull();
+  });
+
+  it('renders the app when a hung data load succeeds after the timeout', async () => {
+    let finish: (value: unknown) => void = () => {};
+    mockBootstrap.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    await render(<RootLayout />);
+    expect(mockBootstrap).toHaveBeenCalledTimes(1);
+
+    await advance(STARTUP_TIMEOUT_MS);
+    expect(screen.getByText(ERROR_TEXT)).toBeTruthy();
+
+    await act(async () => {
+      finish({});
+    });
+    expect(await screen.findByText('App stack')).toBeTruthy();
+    expect(screen.queryByText(ERROR_TEXT)).toBeNull();
+  });
+
+  it('does not fire once start-up has finished', async () => {
+    await render(<RootLayout />);
+    expect(await screen.findByText('App stack')).toBeTruthy();
+
+    await advance(STARTUP_TIMEOUT_MS * 2);
+    expect(screen.getByText('App stack')).toBeTruthy();
+    expect(screen.queryByText(ERROR_TEXT)).toBeNull();
   });
 });

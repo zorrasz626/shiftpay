@@ -5,6 +5,7 @@ import { aggregatePeriod } from '../payPeriods';
 import { payPeriodList, periodDetail } from '../periodList';
 import type { PayPeriodListInput, PayPeriodListItem, PeriodDetail } from '../periodList';
 import { shiftDetail } from '../shiftDetail';
+import { monthlyStats } from '../stats';
 import type { DateRange } from '../shiftPay';
 import { addMinutes } from '../time';
 import type {
@@ -116,7 +117,8 @@ function detail(shifts: Shift[], j: Job, rules: PremiumRule[], period: DateRange
   expect(d.totalGrossPence).toBe(engine.totalGrossPence);
   expect(d.paidHours).toBe(engine.paidHours);
   expect(d.payDate).toBe(engine.payDate);
-  expect(d.lines.every((l) => l.pence !== 0)).toBe(true);
+  // 0p lines are dropped, except overtime lines with hours (plain-time OT).
+  expect(d.lines.every((l) => l.pence !== 0 || (l.kind === 'overtime' && l.hours > 0))).toBe(true);
   return d;
 }
 
@@ -304,13 +306,10 @@ describe('periodDetail', () => {
       ['base', 'Base', 'base', 24, 28800],
       ['overtime:ot-weekly', 'Weekly overtime', 'overtime', 8, 4800],
     ]);
-    // Premium wins: the OT rule is in byRule with 0p and is dropped from the lines.
+    // Premium wins: no OT pay, so no OT hours and no byRule entry for the OT rule (F3).
     const rules = [sunday, cheapWeeklyOt];
     const engine = aggregatePeriod(shifts, withMode('highest'), rules, bankHolidays, period);
-    expect(engine.byRule.find((r) => r.ruleId === 'ot-cheap')).toMatchObject({
-      hours: 8,
-      pence: 0,
-    });
+    expect(engine.byRule.find((r) => r.ruleId === 'ot-cheap')).toBeUndefined();
     expect(lineRows(detail(shifts, withMode('highest'), rules, period))).toEqual([
       ['base', 'Base', 'base', 24, 28800],
       ['premium:sunday', 'Sunday', 'premium', 8, 1600],
@@ -344,7 +343,7 @@ describe('periodDetail', () => {
     const j = withMode('highest');
     const engine = aggregatePeriod(input, j, rules, bankHolidays, period);
     expect(engine.byRule.find((r) => r.ruleId === 'ot-cheap')).toMatchObject({
-      hours: 12,
+      hours: 4,
       pence: 400,
     });
     const d = detail(input, j, rules, period);
@@ -399,4 +398,79 @@ describe('periodDetail', () => {
       shifts: [],
     });
   });
+});
+
+describe('OT hours are counted the same everywhere (F3)', () => {
+  const period = { start: '2027-01-11', end: '2027-01-17' };
+  // Mon + Tue = 16h; Wed 4h is OT with no premium; Sun 8h is OT and Sunday (+200 beats OT +100).
+  const shifts = [
+    sh('sun', '2027-01-17', 9, 8),
+    sh('mon', '2027-01-11', 9, 8),
+    sh('tue', '2027-01-12', 9, 8),
+    sh('wed', '2027-01-13', 9, 4),
+  ];
+  /** Plain-time OT (x1.0): pays the hours at base rate, adding 0p. */
+  const plainWeeklyOt: PremiumRule = {
+    ...weeklyOt,
+    id: 'ot-plain',
+    name: 'Plain overtime',
+    multiplier: 1,
+  };
+
+  it.each([
+    // mode, OT rule, OT hours, [base, premium, OT, gross] pence
+    ['highest', cheapWeeklyOt, 4, [33600, 1600, 400, 35600]],
+    ['replace', cheapWeeklyOt, 12, [33600, 0, 1200, 34800]],
+    ['stack', cheapWeeklyOt, 12, [33600, 1600, 1200, 36400]],
+    // x1.0: Wed is OT at 0p; Sunday's premium out-bids it only in `highest`.
+    ['highest', plainWeeklyOt, 4, [33600, 1600, 0, 35200]],
+    ['replace', plainWeeklyOt, 12, [33600, 0, 0, 33600]],
+    ['stack', plainWeeklyOt, 12, [33600, 1600, 0, 35200]],
+  ] as const)(
+    '%s, %#: periodDetail, shiftDetail, byRule and Stats agree on OT hours and pence',
+    (mode, ot, otHours, pence) => {
+      const rules = [sunday, ot];
+      const j = withMode(mode);
+      const engine = aggregatePeriod(shifts, j, rules, bankHolidays, period);
+      const d = detail(shifts, j, rules, period);
+      const stats = monthlyStats({
+        shifts,
+        job: j,
+        rules,
+        bankHolidays,
+        from: '2027-01',
+        to: '2027-01',
+        now: '2027-12-31T00:00:00.000Z',
+      });
+
+      const byRuleOt = engine.byRule.find((r) => r.ruleId === ot.id);
+      const lineOt = d.lines.find((l) => l.key === `overtime:${ot.id}`);
+      const shiftOtHours = shifts
+        .map((s) => shiftDetail({ shift: s, shifts, job: j, rules, bankHolidays }))
+        .flatMap((sd) => sd.lines.filter((l) => l.key === `overtime:${ot.id}`))
+        .reduce((acc, l) => acc + l.hours, 0);
+      expect(byRuleOt?.hours).toBe(otHours);
+      expect(lineOt?.hours).toBe(otHours);
+      expect(shiftOtHours).toBe(otHours);
+      expect(stats.totals.overtimeHours).toBe(otHours);
+      expect(stats.months[0].overtimeHours).toBe(otHours);
+      expect(stats.totals.byRule).toEqual(engine.byRule);
+
+      // Pence are unchanged by the OT-hours definition, and agree across readers.
+      expect([
+        engine.basePence,
+        engine.premiumPence,
+        engine.overtimePence,
+        engine.totalGrossPence,
+      ]).toEqual(pence);
+      expect([
+        stats.totals.basePence,
+        stats.totals.premiumPence,
+        stats.totals.overtimePence,
+        stats.totals.grossPence,
+      ]).toEqual(pence);
+      expect(d.totalGrossPence).toBe(pence[3]);
+      expect(lineOt?.pence).toBe(pence[2]);
+    },
+  );
 });

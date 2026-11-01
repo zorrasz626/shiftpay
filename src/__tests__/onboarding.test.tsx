@@ -3,13 +3,14 @@ import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import { StyleSheet, Text } from 'react-native';
 
 import OnboardingJobScreen from '../../app/onboarding/job';
+import OnboardingPayScreen from '../../app/onboarding/pay';
 import OnboardingPremiumsScreen from '../../app/onboarding/premiums';
 import OnboardingRotaScreen from '../../app/onboarding/rota';
 import { DISCLAIMER } from '../components/Disclaimer';
 import { Screen } from '../components/Screen';
 import { PREMIUM_PRESETS } from '../engine/presets';
 import { useProStore } from '../features/pro/proStore';
-import { MESSAGES, useOnboardingStore } from '../store/onboardingStore';
+import { FIX_HINT, MESSAGES, useOnboardingStore } from '../store/onboardingStore';
 
 jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({
   __esModule: true,
@@ -34,26 +35,43 @@ describe('onboarding step 1', () => {
     mockPush.mockClear();
   });
 
-  it('enables Continue only once the name and rate are valid', async () => {
+  it('advances only once the name and rate are valid', async () => {
     await render(<OnboardingJobScreen />);
     expect(screen.getByText('Step 1 of 4')).toBeTruthy();
     expect(screen.getByRole('header', { name: 'Your job' })).toBeTruthy();
     expect(screen.getByText(DISCLAIMER)).toBeTruthy();
 
     const cont = screen.getByRole('button', { name: 'Continue' });
-    expect(cont).toBeDisabled();
+    expect(cont).toBeEnabled();
+    expect(cont.props.accessibilityHint).toBe(FIX_HINT);
 
     await fireEvent.changeText(screen.getByLabelText('Job name'), 'Day job');
     await fireEvent.changeText(screen.getByLabelText('Base rate per hour (£)'), '12.345');
     expect(screen.getByText(MESSAGES.rate)).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled();
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    expect(mockPush).not.toHaveBeenCalled();
 
     await fireEvent.changeText(screen.getByLabelText('Base rate per hour (£)'), '12.21');
     expect(screen.queryByText(MESSAGES.rate)).toBeNull();
-    const enabled = screen.getByRole('button', { name: 'Continue' });
-    expect(enabled).toBeEnabled();
-    await fireEvent.press(enabled);
+    const ready = screen.getByRole('button', { name: 'Continue' });
+    expect(ready.props.accessibilityHint).toBeUndefined();
+    await fireEvent.press(ready);
     expect(mockPush).toHaveBeenCalledWith('/onboarding/pay');
+  });
+
+  it('shows no errors at first, an empty-field error after blur, and all errors on Continue', async () => {
+    await render(<OnboardingJobScreen />);
+    expect(screen.queryByText(MESSAGES.nameRequired)).toBeNull();
+    expect(screen.queryByText(MESSAGES.rate)).toBeNull();
+
+    await fireEvent(screen.getByLabelText('Job name'), 'blur');
+    expect(screen.getByText(MESSAGES.nameRequired)).toBeTruthy();
+    expect(screen.getByLabelText('Job name').props.accessibilityHint).toBe(MESSAGES.nameRequired);
+    expect(screen.queryByText(MESSAGES.rate)).toBeNull();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    expect(screen.getByText(MESSAGES.rate)).toBeTruthy();
+    expect(mockPush).not.toHaveBeenCalled();
   });
 });
 
@@ -81,13 +99,12 @@ describe('onboarding step 3', () => {
       expect(screen.getByRole('button', { name: day })).toBeTruthy();
     }
     expect(screen.getByText(MESSAGES.pickDays)).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled();
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    expect(mockPush).not.toHaveBeenCalled();
 
     await fireEvent.press(screen.getByRole('button', { name: 'Wed' }));
     expect(screen.queryByText(MESSAGES.pickDays)).toBeNull();
-    const enabled = screen.getByRole('button', { name: 'Continue' });
-    expect(enabled).toBeEnabled();
-    await fireEvent.press(enabled);
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
     expect(mockPush).toHaveBeenCalledWith('/onboarding/premiums');
   });
 
@@ -96,12 +113,60 @@ describe('onboarding step 3', () => {
     await fireEvent.changeText(screen.getByLabelText('Shift starts (HH:MM)'), '22:00');
     await fireEvent.changeText(screen.getByLabelText('Shift ends (HH:MM)'), '06:00');
     expect(screen.getByText('Ends next day')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled();
+    expect(
+      screen.getByRole('button', { name: 'Continue' }).props.accessibilityHint,
+    ).toBeUndefined();
 
     await fireEvent.changeText(screen.getByLabelText('Shift ends (HH:MM)'), '6am');
     expect(screen.getByText(MESSAGES.time)).toBeTruthy();
     expect(screen.queryByText('Next 14 days')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled();
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('shows no errors at first, an empty-field error after blur, and all errors on Continue', async () => {
+    await render(<OnboardingRotaScreen />);
+    expect(screen.queryByText(MESSAGES.time)).toBeNull();
+    expect(screen.queryByText(MESSAGES.breakMinutes)).toBeNull();
+
+    await fireEvent.changeText(screen.getByLabelText('Shift starts (HH:MM)'), '');
+    await fireEvent.changeText(screen.getByLabelText('Unpaid break (minutes)'), '');
+    expect(screen.queryByText(MESSAGES.time)).toBeNull();
+    await fireEvent(screen.getByLabelText('Shift starts (HH:MM)'), 'blur');
+    expect(screen.getByText(MESSAGES.time)).toBeTruthy();
+    expect(screen.queryByText(MESSAGES.breakMinutes)).toBeNull();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    expect(screen.getByText(MESSAGES.breakMinutes)).toBeTruthy();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+});
+
+describe('onboarding step 2', () => {
+  beforeEach(() => {
+    useOnboardingStore.getState().reset();
+    mockPush.mockClear();
+  });
+
+  it('shows no errors at first, an empty-field error after blur, and all errors on Continue', async () => {
+    await render(<OnboardingPayScreen />);
+    expect(screen.getByText('Step 2 of 4')).toBeTruthy();
+    expect(screen.queryByText(MESSAGES.date)).toBeNull();
+
+    await fireEvent(screen.getByLabelText('Next pay date'), 'blur');
+    expect(screen.getAllByText(MESSAGES.date)).toHaveLength(1);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    // The last day of the period is empty too, so it now shows its error as well.
+    expect(screen.getAllByText(MESSAGES.date)).toHaveLength(2);
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('defaults the monthly cut-off day to 31', async () => {
+    await render(<OnboardingPayScreen />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Monthly' }));
+    expect(screen.getByLabelText('Cut-off day of the month (1–31)').props.value).toBe('31');
+    expect(useOnboardingStore.getState().periodCutoffDay).toBe('31');
   });
 });
 

@@ -16,7 +16,7 @@ const MS_PER_MINUTE = 60_000;
 const MS_PER_DAY = 24 * 60 * MS_PER_MINUTE;
 
 const LOCAL_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
-const WALL_CLOCK_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
+export const WALL_CLOCK_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 export interface LocalDateTime {
   date: LocalDate;

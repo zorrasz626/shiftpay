@@ -8,7 +8,7 @@
  * reminder across the BST/GMT change fires the right amount of time before
  * the shift. Instants are compared via `minutesBetween()`, never as strings.
  */
-import { MONTH_NAMES } from './calendarMonth';
+import { DAY_SHORT, MONTH_NAMES } from './calendarMonth';
 import { addMinutes, instantToLocal, minutesBetween } from './time';
 import type { IsoInstant, Shift } from './types';
 
@@ -21,8 +21,6 @@ export const REMINDERS_ENABLED_KEY = 'reminders.enabled';
 export const REMINDER_LEAD_KEY = 'reminders.leadMinutes';
 
 const MAX_LEAD_MINUTES = 1440;
-
-const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
 
 export interface ReminderSettings {
   enabled: boolean;

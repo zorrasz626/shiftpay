@@ -317,6 +317,16 @@ describe('useOnboardingStore', () => {
     expect(useOnboardingStore.getState().jobId).toBeUndefined();
   });
 
+  it('pre-fills a monthly cut-off of 31 only when none is set (D6)', () => {
+    const s = useOnboardingStore.getState();
+    s.setPayFrequency('monthly');
+    expect(useOnboardingStore.getState().periodCutoffDay).toBe('31');
+    s.setPeriodCutoffDay('20');
+    s.setPayFrequency('weekly');
+    s.setPayFrequency('monthly');
+    expect(useOnboardingStore.getState().periodCutoffDay).toBe('20');
+  });
+
   it('holds the rota fields and toggles days in order', () => {
     const s = useOnboardingStore.getState();
     s.setRotaPreset('custom_weekly');

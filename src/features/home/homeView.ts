@@ -3,13 +3,11 @@
  * `HomeSummary` into display strings. Pure; never reads the clock. All
  * instants are shown in Europe/London via `src/engine/time.ts`.
  */
+import { DAY_SHORT, MONTH_NAMES } from '../../engine/calendarMonth';
 import type { HomeSummary } from '../../engine/homeSummary';
 import { formatPence } from '../../engine/money';
 import { addLocalDays, instantToLocal } from '../../engine/time';
 import type { LocalDate } from '../../engine/types';
-
-const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 /** A shift starting at or after this London time today reads "Tonight", otherwise "Today". */
 const TONIGHT_FROM = '17:00';
@@ -28,7 +26,7 @@ function parts(date: LocalDate): { day: number; month: string; weekday: string }
   const [y, m, d] = date.split('-').map(Number);
   // Calendar maths only (UTC methods): no time-zone effect.
   const weekday = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
-  return { day: d, month: MONTH_SHORT[m - 1], weekday: DAY_SHORT[weekday] };
+  return { day: d, month: MONTH_NAMES[m - 1].slice(0, 3), weekday: DAY_SHORT[weekday] };
 }
 
 /** "1 Nov". */

@@ -10,31 +10,23 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
-import { Chip, type ChipTone } from '../../components/Chip';
+import { Chip } from '../../components/Chip';
 import { Disclaimer } from '../../components/Disclaimer';
 import { db } from '../../db/client';
 import type { StoredShift } from '../../db/shiftRepo';
-import { MONTH_NAMES } from '../../engine/calendarMonth';
+import { DAY_SHORT, MONDAY_FIRST, MONTH_NAMES } from '../../engine/calendarMonth';
 import { instantToLocal, localDaysBetween } from '../../engine/time';
 import type { LocalDate, ShiftStatus } from '../../engine/types';
+import { STATUS_CHIP } from '../shifts/statusChip';
 import { useJobsStore } from '../../store/jobsStore';
 import { useShiftsStore } from '../../store/shiftsStore';
 import { tabularNums } from '../../theme/tokens';
 import { useTheme } from '../../theme/useTheme';
 import { ManualShiftForm } from './ManualShiftForm';
 
-const SHORT_WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 /** A known Monday, for weekday arithmetic without `Date#getDay`. */
 const REFERENCE_MONDAY: LocalDate = '2001-01-01';
 const NIGHT_START = '18:00';
-
-const STATUS_CHIP: Record<ShiftStatus, { label: string; tone: ChipTone }> = {
-  planned: { label: 'Planned', tone: 'neutral' },
-  worked: { label: 'Worked', tone: 'positive' },
-  sick: { label: 'Sick', tone: 'alert' },
-  holiday: { label: 'Holiday', tone: 'positive' },
-  cancelled: { label: 'Cancelled', tone: 'neutral' },
-};
 
 const ACTIONS: readonly { status: Exclude<ShiftStatus, 'planned'>; label: string }[] = [
   { status: 'worked', label: 'Worked' },
@@ -47,8 +39,10 @@ const ACTIONS: readonly { status: Exclude<ShiftStatus, 'planned'>; label: string
 export function daySheetTitle(date: LocalDate): string {
   const weekday = ((localDaysBetween(REFERENCE_MONDAY, date) % 7) + 7) % 7;
   const month = MONTH_NAMES[Number(date.slice(5, 7)) - 1].slice(0, 3);
-  return `${SHORT_WEEKDAYS[weekday]} ${Number(date.slice(8, 10))} ${month}`;
+  return `${DAY_SHORT[MONDAY_FIRST[weekday]]} ${Number(date.slice(8, 10))} ${month}`;
 }
+
+const SELECTED_BORDER = 2;
 
 type Mode = { kind: 'list' } | { kind: 'add' } | { kind: 'edit'; shift: StoredShift };
 
@@ -78,9 +72,12 @@ function SegmentButton({
         styles.segment,
         {
           borderRadius: radius.button,
-          borderColor: selected ? colors.signal : colors.line,
+          // Selected also gets a thicker ink border, so the state does not rely on the
+          // signal fill colour (WCAG 1.4.11); padding absorbs the extra width.
+          borderColor: selected ? colors.ink : colors.line,
+          borderWidth: selected ? SELECTED_BORDER : 1,
           backgroundColor: selected ? colors.signal : colors.surface,
-          paddingHorizontal: spacing.md,
+          paddingHorizontal: selected ? spacing.md - (SELECTED_BORDER - 1) : spacing.md,
         },
         pressed && styles.pressed,
       ]}

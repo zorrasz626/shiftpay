@@ -1,5 +1,7 @@
 import {
   formatPence,
+  formatSignedPence,
+  MINUS_SIGN,
   parsePoundsToPence,
   roundPence,
   segmentPence,
@@ -121,6 +123,21 @@ describe('formatPence', () => {
   });
 });
 
+describe('formatSignedPence', () => {
+  it('prefixes + or a typographic minus; zero is unsigned', () => {
+    expect(MINUS_SIGN).toBe('−');
+    expect(formatSignedPence(120)).toBe('+£1.20');
+    expect(formatSignedPence(-1800)).toBe('−£18.00');
+    expect(formatSignedPence(0)).toBe('£0.00');
+    expect(formatSignedPence(123456)).toBe('+£1,234.56');
+    expect(formatSignedPence(-123456)).toBe('−£1,234.56');
+  });
+
+  it('throws on non-integer pence (via formatPence)', () => {
+    expect(() => formatSignedPence(1.5)).toThrow(TypeError);
+  });
+});
+
 describe('parsePoundsToPence', () => {
   it.each([
     ['12.3', 1230],
@@ -171,4 +188,23 @@ describe('parsePoundsToPence', () => {
       expect(parsePoundsToPence(formatPence(pence))).toBe(pence);
     },
   );
+});
+
+describe('parsePoundsToPence with { plain: true } (rule flat adds)', () => {
+  const plain = { plain: true };
+
+  it('converts digit by digit with no float drift', () => {
+    expect(parsePoundsToPence('1.10', plain)).toBe(110);
+    expect(parsePoundsToPence('1.1', plain)).toBe(110);
+    expect(parsePoundsToPence('0.29', plain)).toBe(29);
+    expect(parsePoundsToPence('4.35', plain)).toBe(435);
+    expect(parsePoundsToPence(' 2 ', plain)).toBe(200);
+  });
+
+  it('rejects malformed or huge amounts', () => {
+    for (const bad of ['', 'abc', '1,50', '0.333', '-1', '£1', '1.', '.5', '1,234', '-0']) {
+      expect(parsePoundsToPence(bad, plain)).toBeNull();
+    }
+    expect(parsePoundsToPence('9'.repeat(20), plain)).toBeNull();
+  });
 });

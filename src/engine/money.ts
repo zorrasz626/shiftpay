@@ -64,19 +64,38 @@ export function formatPence(p: number): string {
   return `${sign}£${groupedPounds}.${pencePart}`;
 }
 
+/** Typographic minus (U+2212) for signed differences; `formatPence` keeps the ASCII hyphen. */
+export const MINUS_SIGN = '−';
+
+/** Signed difference: `120` -> `+£1.20`, `-1800` -> `−£18.00`, `0` -> `£0.00`. */
+export function formatSignedPence(pence: number): string {
+  if (pence > 0) return `+${formatPence(pence)}`;
+  if (pence < 0) return `${MINUS_SIGN}${formatPence(-pence)}`;
+  return formatPence(0);
+}
+
 /**
  * Optional leading minus, optional £, pounds either plain digits or correctly
  * comma-grouped, then optionally 1-2 decimal places.
  */
 const POUNDS_PATTERN = /^(-)?£?(\d+|\d{1,3}(?:,\d{3})+)(?:\.(\d{1,2}))?$/;
 
+export interface ParsePoundsOptions {
+  /** Plain digits only ("1.10", "2"): no minus, £ or commas. */
+  plain?: boolean;
+}
+
 /**
  * Parse a pounds string (`"12.3"`, `"£1,234.56"`, `"-£12.30"`) to integer pence.
  * Returns null on invalid input (including more than 2 decimal places).
  * Uses string arithmetic only, so no float noise is introduced.
  */
-export function parsePoundsToPence(text: string): number | null {
-  const match = POUNDS_PATTERN.exec(text.trim());
+export function parsePoundsToPence(text: string, options: ParsePoundsOptions = {}): number | null {
+  const trimmed = text.trim();
+  if (options.plain === true && /[-£,]/.test(trimmed)) {
+    return null;
+  }
+  const match = POUNDS_PATTERN.exec(trimmed);
   if (match === null) {
     return null;
   }

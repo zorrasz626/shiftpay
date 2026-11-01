@@ -8,6 +8,9 @@ import { Screen } from '../../src/components/Screen';
 import {
   type CalendarDay,
   type CalendarShiftKind,
+  DAY_NAMES,
+  DAY_SHORT,
+  MONDAY_FIRST,
   MONTH_NAMES,
   addMonths,
   calendarMonth,
@@ -20,16 +23,7 @@ import { useShiftsStore } from '../../src/store/shiftsStore';
 import { type Colors, maxFontScale, tabularNums } from '../../src/theme/tokens';
 import { useTheme } from '../../src/theme/useTheme';
 
-const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
-const WEEKDAY_NAMES = [
-  'Monday',
-  'Tuesday',
-  'Wednesday',
-  'Thursday',
-  'Friday',
-  'Saturday',
-  'Sunday',
-] as const;
+const WEEKDAYS = MONDAY_FIRST.map((d) => DAY_SHORT[d]);
 const MAX_CODES = 2;
 /** Today marker ring width (dp). */
 const TODAY_RING = 2;
@@ -100,7 +94,7 @@ function ShiftCode({
 
 function dayLabel(day: CalendarDay, column: number): string {
   const parts = [
-    `${WEEKDAY_NAMES[column]} ${day.dayOfMonth} ${MONTH_NAMES[Number(day.date.slice(5, 7)) - 1]}`,
+    `${DAY_NAMES[MONDAY_FIRST[column]]} ${day.dayOfMonth} ${MONTH_NAMES[Number(day.date.slice(5, 7)) - 1]}`,
   ];
   if (day.isToday) parts.push('today');
   if (day.isBankHoliday) parts.push('bank holiday');
@@ -151,7 +145,12 @@ function DayCell({
       >
         <Text
           maxFontSizeMultiplier={maxFontScale.cell}
-          style={[typography.body, styles.nums, { color: numberColor }]}
+          style={[
+            { fontFamily: typography.body.fontFamily, fontSize: typography.body.fontSize },
+            styles.nums,
+            styles.dateNumber,
+            { color: numberColor },
+          ]}
         >
           {day.dayOfMonth}
         </Text>
@@ -356,6 +355,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // No lineHeight and no font padding: the line box is just the glyphs, so the fixed-size
+  // marker centres the number in the today ring at large font scales too (Android adds
+  // extra lineHeight above the text, which pushed it low).
+  dateNumber: { includeFontPadding: false, textAlignVertical: 'center' },
   code: { overflow: 'hidden', marginTop: 2 },
   legend: { flexDirection: 'row', flexWrap: 'wrap' },
   legendItem: { flexDirection: 'row', alignItems: 'center' },

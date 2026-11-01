@@ -1,11 +1,9 @@
 import { render, screen, within } from '@testing-library/react-native';
 
 import { NO_CAUSE_TEXT, payslipChip, type PayslipCheckView } from '../engine/payslipCheck';
-import {
-  formatSignedHours,
-  formatSignedPence,
-  PayslipCheckCard,
-} from '../features/pay/PayslipCheckCard';
+import { formatSignedPence } from '../engine/money';
+import { PayslipCheckCard } from '../features/pay/PayslipCheckCard';
+import { formatSignedHours } from '../features/pay/payView';
 
 jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({
   __esModule: true,

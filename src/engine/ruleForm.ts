@@ -7,6 +7,7 @@
  * (D3), converted digit by digit so there is no float drift ("1.10" -> 110).
  */
 import { isValidWallClock } from './manualShift';
+import { parsePoundsToPence } from './money';
 import type {
   DayOfWeek,
   PremiumRate,
@@ -76,7 +77,8 @@ export const RULE_FORM_MESSAGES = {
 } as const;
 
 const DECIMAL_RE = /^\d+(\.\d+)?$/;
-const POUNDS_RE = /^(\d+)(?:\.(\d{1,2}))?$/;
+/** Flat adds are plain digits: no sign, £ or commas. */
+const PLAIN_POUNDS = { plain: true } as const;
 
 /** Default form for a new rule of the given type. */
 export function newRuleForm(type: PremiumRuleType): RuleFormValues {
@@ -159,14 +161,6 @@ function parseDecimal(text: string): number | null {
   return DECIMAL_RE.test(t) ? Number(t) : null;
 }
 
-/** "£" text with up to 2 dp -> integer pence, digit by digit; null if malformed. */
-export function parsePoundsToPence(text: string): number | null {
-  const m = POUNDS_RE.exec(text.trim());
-  if (!m) return null;
-  const pence = Number(m[1]) * 100 + Number((m[2] ?? '').padEnd(2, '0'));
-  return Number.isSafeInteger(pence) ? pence : null;
-}
-
 function isOvertimeType(type: PremiumRuleType): type is OvertimeType {
   return type in RULE_THRESHOLD_MAX;
 }
@@ -183,7 +177,7 @@ export function ruleFormErrors(values: RuleFormValues): RuleFormError[] {
       errors.push({ field: 'multiplierText', message: RULE_FORM_MESSAGES.multiplier });
     }
   } else {
-    const p = parsePoundsToPence(values.flatText);
+    const p = parsePoundsToPence(values.flatText, PLAIN_POUNDS);
     if (p === null || p < 1) {
       errors.push({ field: 'flatText', message: RULE_FORM_MESSAGES.flat });
     }
@@ -218,7 +212,7 @@ export function formToRule(values: RuleFormValues, ids: { id: string; jobId: str
   const rate: PremiumRate =
     values.rateKind === 'multiplier'
       ? { multiplier: Number(values.multiplierText.trim()) }
-      : { flatAddPencePerHour: parsePoundsToPence(values.flatText) as number };
+      : { flatAddPencePerHour: parsePoundsToPence(values.flatText, PLAIN_POUNDS) as number };
   const common = {
     id: ids.id,
     jobId: ids.jobId,

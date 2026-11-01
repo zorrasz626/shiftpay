@@ -6,7 +6,7 @@
 import type { BankHolidayLookup } from './bankHolidays';
 import type { DateRange } from './shiftPay';
 import { addLocalDays, instantToLocal, localDaysBetween, minutesBetween } from './time';
-import type { BankHolidayRegion, LocalDate, Shift, ShiftStatus } from './types';
+import type { BankHolidayRegion, DayOfWeek, LocalDate, Shift, ShiftStatus } from './types';
 
 export type CalendarShiftKind = 'day' | 'night' | 'holiday' | 'sick' | 'cancelled' | 'overtime';
 
@@ -60,6 +60,23 @@ export const MONTH_NAMES = [
   'November',
   'December',
 ] as const;
+
+/** Weekday names, index = `DayOfWeek` (0 = Sunday). */
+export const DAY_NAMES = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+] as const;
+
+/** Three-letter weekday names ("Sun", "Mon", ...), index = `DayOfWeek`. */
+export const DAY_SHORT: readonly string[] = DAY_NAMES.map((name) => name.slice(0, 3));
+
+/** Days of the week Monday first, as UK rotas are usually written. */
+export const MONDAY_FIRST: readonly DayOfWeek[] = [1, 2, 3, 4, 5, 6, 0];
 
 /** A known Monday, for weekday arithmetic without `Date#getDay`. */
 const REFERENCE_MONDAY: LocalDate = '2001-01-01';
