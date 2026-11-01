@@ -2,7 +2,10 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import { StyleSheet } from 'react-native';
 
 import HomeScreen from '../../app/(tabs)/index';
-import SettingsScreen from '../../app/(tabs)/settings';
+import SettingsScreen, {
+  BACKUP_FAILED_MESSAGE,
+  BACKUP_UNAVAILABLE_MESSAGE,
+} from '../../app/(tabs)/settings';
 import JobSettingsScreen from '../../app/settings/job';
 import { bankHolidays } from '../config/bankHolidays';
 import { db } from '../db/client';
@@ -10,6 +13,7 @@ import { type StoredJob, createJob, deleteJob, getJob } from '../db/jobRepo';
 import { homeSummary } from '../engine/homeSummary';
 import { formatPence } from '../engine/money';
 import type { PremiumRule } from '../engine/types';
+import { type BackupExportResult, exportBackupToShare } from '../services/backupShare';
 import { useJobsStore } from '../store/jobsStore';
 import { MESSAGES } from '../store/onboardingStore';
 import { useRulesStore } from '../store/rulesStore';
@@ -18,6 +22,11 @@ import { job, resetStores, shift } from '../store/testFixtures';
 import { darkColors, lightColors } from '../theme/tokens';
 
 jest.mock('../db/client', () => ({ db: require('../db/testDb').createTestDb() }));
+jest.mock('../services/backupShare', () => ({
+  ...jest.requireActual('../services/backupShare'),
+  exportBackupToShare: jest.fn(),
+}));
+const mockExport = exportBackupToShare as jest.MockedFunction<typeof exportBackupToShare>;
 const mockPush = jest.fn();
 const mockBack = jest.fn();
 jest.mock('expo-router', () => ({
@@ -117,6 +126,72 @@ describe('Settings tab', () => {
 
     await act(() => seed(job));
     expect(screen.getByText('No pay rules yet')).toBeTruthy();
+  });
+});
+
+describe('Settings tab backup', () => {
+  const exportButton = () => screen.getByRole('button', { name: 'Export backup' });
+  const isDisabled = () => exportButton().props.accessibilityState?.disabled === true;
+
+  beforeEach(() => {
+    mockExport.mockReset();
+  });
+
+  it('shows the Backup card between Reminders and About, and disables Export while it runs', async () => {
+    let finish: (r: BackupExportResult) => void = () => {};
+    mockExport.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    await render(<SettingsScreen />);
+
+    const headers = screen.getAllByRole('header').map((h) => h.props.children as unknown);
+    expect(headers.indexOf('Backup')).toBe(headers.indexOf('Reminders') + 1);
+    expect(headers.indexOf('About')).toBe(headers.indexOf('Backup') + 1);
+    expect(screen.getByText('Save a copy of all your data')).toBeTruthy();
+    expect(isDisabled()).toBe(false);
+
+    await fireEvent.press(exportButton());
+    expect(mockExport).toHaveBeenCalledTimes(1);
+    expect(mockExport.mock.calls[0][0]).toBe(db);
+    expect(new Date(mockExport.mock.calls[0][1]).toISOString()).toBe(mockExport.mock.calls[0][1]);
+    expect(isDisabled()).toBe(true);
+    await fireEvent.press(exportButton());
+    expect(mockExport).toHaveBeenCalledTimes(1);
+
+    await act(async () => finish({ status: 'shared', uri: 'file:///cache/x.json' }));
+    expect(isDisabled()).toBe(false);
+    expect(screen.queryByText(BACKUP_UNAVAILABLE_MESSAGE)).toBeNull();
+    expect(screen.queryByText(BACKUP_FAILED_MESSAGE)).toBeNull();
+  });
+
+  it('says when sharing is unavailable, and clears the message on the next try', async () => {
+    mockExport.mockResolvedValueOnce({ status: 'unavailable' });
+    await render(<SettingsScreen />);
+
+    await fireEvent.press(exportButton());
+    await waitFor(() => expect(screen.getByText(BACKUP_UNAVAILABLE_MESSAGE)).toBeTruthy());
+    expect(isDisabled()).toBe(false);
+
+    mockExport.mockResolvedValueOnce({ status: 'shared', uri: 'file:///cache/x.json' });
+    await fireEvent.press(exportButton());
+    await waitFor(() => expect(screen.queryByText(BACKUP_UNAVAILABLE_MESSAGE)).toBeNull());
+  });
+
+  it('shows an error and re-enables the button when the export fails', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      mockExport.mockRejectedValueOnce(new Error('disk full'));
+      await render(<SettingsScreen />);
+
+      await fireEvent.press(exportButton());
+      await waitFor(() => expect(screen.getByText(BACKUP_FAILED_MESSAGE)).toBeTruthy());
+      expect(isDisabled()).toBe(false);
+      expect(warn).toHaveBeenCalledWith('Backup export failed.', expect.any(Error));
+    } finally {
+      warn.mockRestore();
+    }
   });
 });
 

@@ -1,18 +1,22 @@
 /**
  * Settings tab: the job (name and base rate, opens Job settings), the pay
  * rules (opens the rule list), the rota (opens the rota editor), holiday
- * (opens Holiday settings), shift reminders (opens Reminder settings) and the
- * disclaimer. Free tier = one job, one rota pattern.
+ * (opens Holiday settings), shift reminders (opens Reminder settings), backup
+ * export (share sheet) and the disclaimer. Free tier = one job, one rota pattern.
  */
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { Button } from '../../src/components/Button';
 import { Card } from '../../src/components/Card';
 import { Disclaimer } from '../../src/components/Disclaimer';
 import { Screen } from '../../src/components/Screen';
+import { db } from '../../src/db/client';
 import { formatPence } from '../../src/engine/money';
 import { formatLeadMinutes, reminderSettings } from '../../src/engine/reminders';
 import type { Job, RotaPattern } from '../../src/engine/types';
+import { exportBackupToShare } from '../../src/services/backupShare';
 import { useJobsStore } from '../../src/store/jobsStore';
 import { useRotaStore } from '../../src/store/rotaStore';
 import { useRulesStore } from '../../src/store/rulesStore';
@@ -82,6 +86,52 @@ function SettingsRow({
   );
 }
 
+export const BACKUP_UNAVAILABLE_MESSAGE = "Sharing isn't available on this device.";
+export const BACKUP_FAILED_MESSAGE = "The backup couldn't be exported. Try again.";
+
+/** Backup card: "Export backup" writes the JSON file and opens the share sheet. */
+function BackupCard() {
+  const { colors, typography, spacing } = useTheme();
+  const [exporting, setExporting] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  async function onExport() {
+    setExporting(true);
+    setMessage(null);
+    try {
+      const result = await exportBackupToShare(db, new Date().toISOString());
+      if (result.status === 'unavailable') setMessage(BACKUP_UNAVAILABLE_MESSAGE);
+    } catch (e) {
+      console.warn('Backup export failed.', e);
+      setMessage(BACKUP_FAILED_MESSAGE);
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  return (
+    <Card title="Backup">
+      <Text style={[typography.body, { color: colors.inkMuted, marginBottom: spacing.sm }]}>
+        Save a copy of all your data
+      </Text>
+      <Button
+        label="Export backup"
+        variant="secondary"
+        disabled={exporting}
+        onPress={() => void onExport()}
+      />
+      {message !== null && (
+        <Text
+          accessibilityLiveRegion="polite"
+          style={[typography.body, { color: colors.alert, marginTop: spacing.sm }]}
+        >
+          {message}
+        </Text>
+      )}
+    </Card>
+  );
+}
+
 export default function SettingsScreen() {
   const router = useRouter();
   const { colors, typography, spacing } = useTheme();
@@ -145,6 +195,9 @@ export default function SettingsScreen() {
           onPress={() => router.push({ pathname: '/settings/reminders' })}
         />
       </Card>
+      <View style={gap} />
+
+      <BackupCard />
       <View style={gap} />
 
       <Card title="About">

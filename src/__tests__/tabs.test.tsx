@@ -65,6 +65,7 @@ describe.each(themes)('tab screens in %s theme', (scheme, colors) => {
   it('Settings and Pay show the disclaimer with no job', async () => {
     await render(<SettingsScreen />);
     expect(screen.getByText(/Estimates only/)).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Backup' })).toBeTruthy();
     await render(<PayScreen />);
     expect(screen.getByText(/Estimates only/)).toBeTruthy();
   });

@@ -8,6 +8,7 @@ import { PRIVACY_POLICY_URL } from '../config/links';
 import { resetStores } from '../store/testFixtures';
 import { darkColors, lightColors, typography } from '../theme/tokens';
 
+jest.mock('../db/client', () => ({ db: require('../db/testDb').createTestDb() }));
 const mockPush = jest.fn();
 const mockBack = jest.fn();
 jest.mock('expo-router', () => ({
