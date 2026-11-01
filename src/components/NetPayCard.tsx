@@ -12,7 +12,6 @@ import { useTheme } from '../theme/useTheme';
 import { BigNumber } from './BigNumber';
 import { Button } from './Button';
 import { Card } from './Card';
-import { Disclaimer } from './Disclaimer';
 
 export const NET_PAY_TITLE = 'Estimated take-home (rough estimate)';
 export const ASSUMED_YEAR_TEXT = "Rates for a later year aren't in the app yet.";
@@ -26,7 +25,10 @@ export type NetPayCardProps = {
   readonly profile: TaxProfile;
 };
 
-/** Estimated net pay (Pro): net figure, non-zero deductions, the tax year used and the disclaimer. */
+/**
+ * Estimated net pay (Pro): net figure, non-zero deductions and the tax year used.
+ * The host screen shows the disclaimer once, so the card does not repeat it.
+ */
 export function NetPayCard({ grossPence, frequency, payDate, profile }: NetPayCardProps) {
   const router = useRouter();
   const { colors, typography, spacing } = useTheme();
@@ -71,14 +73,13 @@ export function NetPayCard({ grossPence, frequency, payDate, profile }: NetPayCa
         {estimate.taxYearAssumed && (
           <Text style={[muted, { marginTop: spacing.xs }]}>{ASSUMED_YEAR_TEXT}</Text>
         )}
-        <View style={{ marginVertical: spacing.sm }}>
+        <View style={{ marginTop: spacing.sm }}>
           <Button
             label="Tax settings"
             variant="quiet"
             onPress={() => router.push({ pathname: '/settings/tax' })}
           />
         </View>
-        <Disclaimer />
       </Card>
     </View>
   );

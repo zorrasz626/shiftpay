@@ -21,24 +21,52 @@ describe('contrastRatio', () => {
   });
 });
 
-const TEXT_TOKENS: readonly ColorName[] = ['ink', 'inkMuted', 'night', 'positive', 'alert'];
-const BACKGROUNDS: readonly ColorName[] = ['board', 'surface'];
-const AA = 4.5;
+type Pair = readonly [fg: ColorName, bg: ColorName];
+
+// Every text-on-background pair the screens use (all text is normal size, so 4.5:1).
+const TEXT_PAIRS: readonly Pair[] = [
+  // Body, captions, chips (outline), codes, figures and messages on the screen board and cards.
+  ...(['ink', 'inkMuted', 'night', 'positive', 'alert'] as const).flatMap((fg) =>
+    (['board', 'surface'] as const).map((bg): Pair => [fg, bg]),
+  ),
+  // Primary button, selected segment, overtime code, today's date.
+  ['onSignal', 'signal'],
+  // Disabled primary button.
+  ['inkMuted', 'line'],
+  // Selected chip: surface-coloured label on the tone fill.
+  ['surface', 'inkMuted'],
+  ['surface', 'night'],
+  ['surface', 'positive'],
+  ['surface', 'alert'],
+];
+const AA_TEXT = 4.5;
+const AA_NON_TEXT = 3;
 
 describe.each<[string, Colors]>([
   ['light', lightColors],
   ['dark', darkColors],
-])('%s theme meets WCAG AA (4.5:1) for text', (_name, colors) => {
-  const pairs = TEXT_TOKENS.flatMap((fg) =>
-    BACKGROUNDS.map((bg) => [fg, bg] as [ColorName, ColorName]),
-  );
-
-  it.each(pairs)('%s on %s', (fg, bg) => {
-    expect(contrastRatio(colors[fg], colors[bg])).toBeGreaterThanOrEqual(AA);
+])('%s theme', (_name, colors) => {
+  it.each(TEXT_PAIRS)('text: %s on %s meets AA (4.5:1)', (fg, bg) => {
+    expect(contrastRatio(colors[fg], colors[bg])).toBeGreaterThanOrEqual(AA_TEXT);
   });
 
-  it('onSignal on signal', () => {
-    expect(contrastRatio(colors.onSignal, colors.signal)).toBeGreaterThanOrEqual(AA);
+  // Non-colour state cues that stand in for the signal fill: the ink ring on today's
+  // calendar date and the ink underline on the active tab label (WCAG 1.4.11, 3:1).
+  it.each<Pair>([
+    ['ink', 'board'],
+    ['ink', 'surface'],
+  ])('state cue: %s on %s meets 3:1', (fg, bg) => {
+    expect(contrastRatio(colors[fg], colors[bg])).toBeGreaterThanOrEqual(AA_NON_TEXT);
+  });
+});
+
+// The light `signal` yellow is deliberately below 3:1 against board/surface (about 1.5-1.8:1).
+// WCAG 1.4.11 does not require it where the fill is not needed to identify the control:
+// buttons are identified by their text labels, and the two places where the fill marks a
+// state (today, active tab) carry the ink cue tested above. Dark theme does meet 3:1.
+describe('dark theme signal fill', () => {
+  it.each<ColorName>(['board', 'surface'])('signal on %s meets 3:1', (bg) => {
+    expect(contrastRatio(darkColors.signal, darkColors[bg])).toBeGreaterThanOrEqual(AA_NON_TEXT);
   });
 });
 

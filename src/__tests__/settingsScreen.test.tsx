@@ -13,7 +13,12 @@ import SettingsScreen, {
 } from '../../app/(tabs)/settings';
 import JobSettingsScreen from '../../app/settings/job';
 import { bankHolidays } from '../config/bankHolidays';
-import { type Backup, SCHEMA_VERSION, exportBackup } from '../db/backup';
+import {
+  type Backup,
+  MIN_IMPORT_SCHEMA_VERSION,
+  SCHEMA_VERSION,
+  exportBackup,
+} from '../db/backup';
 import { importBackup } from '../db/backupImport';
 import { db } from '../db/client';
 import { type StoredJob, createJob, deleteJob, getJob } from '../db/jobRepo';
@@ -384,7 +389,7 @@ describe('Settings tab backup import', () => {
     ['not-shiftpay', { ...head, app: 'other' }],
     ['newer-format', { ...head, formatVersion: 2 }],
     ['newer-schema', { ...head, schemaVersion: SCHEMA_VERSION + 1 }],
-    ['older-schema', { ...head, schemaVersion: SCHEMA_VERSION - 1 }],
+    ['older-schema', { ...head, schemaVersion: MIN_IMPORT_SCHEMA_VERSION - 1 }],
     ['invalid', { ...head, exportedAt: '2026-11-01T09:30:00.000Z' }],
   ] as const)('shows the %s message and leaves the DB untouched', async (reason, file) => {
     pick(JSON.stringify(file));

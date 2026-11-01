@@ -84,6 +84,16 @@ export const typography = {
   money: { fontFamily: fontFamily.condensedSemiBold, fontSize: 64, lineHeight: 70 },
 } as const satisfies Record<string, TextStyleToken>;
 
+/**
+ * `maxFontSizeMultiplier` caps for fixed-size slots only (calendar day cells, tab
+ * labels, the big money figure). Body text has no cap and scales fully.
+ */
+export const maxFontScale = {
+  cell: 1.3,
+  tabLabel: 1.3,
+  figure: 1.5,
+} as const;
+
 /** All numbers use tabular figures. */
 export const tabularNums = ['tabular-nums'] as const;
 

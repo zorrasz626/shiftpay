@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { formatPence } from '../engine/money';
-import { tabularNums } from '../theme/tokens';
+import { maxFontScale, tabularNums } from '../theme/tokens';
 import { useTheme } from '../theme/useTheme';
 
 export type BigNumberProps = {
@@ -21,8 +21,21 @@ export function BigNumber({ pence, caption }: BigNumberProps) {
   return (
     <View>
       <View style={styles.row} accessible accessibilityLabel={formatted}>
-        <Text style={[typography.money, styles.figure, { color: colors.ink }]}>{pounds}</Text>
-        <Text style={[typography.title, styles.figure, { color: colors.ink }]}>{fraction}</Text>
+        <Text
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          maxFontSizeMultiplier={maxFontScale.figure}
+          style={[typography.money, styles.figure, styles.pounds, { color: colors.ink }]}
+        >
+          {pounds}
+        </Text>
+        <Text
+          numberOfLines={1}
+          maxFontSizeMultiplier={maxFontScale.figure}
+          style={[typography.title, styles.figure, { color: colors.ink }]}
+        >
+          {fraction}
+        </Text>
       </View>
       {caption !== undefined && (
         <Text
@@ -42,4 +55,5 @@ export function BigNumber({ pence, caption }: BigNumberProps) {
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'baseline' },
   figure: { fontVariant: [...tabularNums] },
+  pounds: { flexShrink: 1 },
 });

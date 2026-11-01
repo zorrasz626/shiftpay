@@ -9,6 +9,7 @@ import {
   BACKUP_TABLE_ORDER,
   type Backup,
   type BackupTableName,
+  MIN_IMPORT_SCHEMA_VERSION,
   SCHEMA_VERSION,
   exportBackup,
 } from '../backup';
@@ -257,7 +258,7 @@ describe('parseBackup', () => {
 
   it('rejects newer and older schema versions', () => {
     expect(reasonOf({ ...file, schemaVersion: SCHEMA_VERSION + 1 })).toBe('newer-schema');
-    expect(reasonOf({ ...file, schemaVersion: SCHEMA_VERSION - 1 })).toBe('older-schema');
+    expect(reasonOf({ ...file, schemaVersion: MIN_IMPORT_SCHEMA_VERSION - 1 })).toBe('older-schema');
     expect(reasonOf({ ...file, schemaVersion: String(SCHEMA_VERSION) })).toBe('invalid');
   });
 
@@ -405,6 +406,17 @@ describe('importBackup', () => {
   it('imports into an empty database', async () => {
     const file = await seededFile();
     const parsed = parseBackup(file);
+    if (!parsed.ok) throw new Error(parsed.reason);
+    const target = createTestDb();
+    await importBackup(target, parsed.backup);
+    expect(await exportBackup(target, EXPORTED_AT)).toEqual(file);
+  });
+
+  it('imports a v1 file, which has the same tables as the current schema', async () => {
+    const file = await seededFile();
+    const v1 = { ...file, schemaVersion: 1 };
+    const parsed = parseBackup(v1);
+    expect(parsed).toEqual({ ok: true, backup: v1 });
     if (!parsed.ok) throw new Error(parsed.reason);
     const target = createTestDb();
     await importBackup(target, parsed.backup);

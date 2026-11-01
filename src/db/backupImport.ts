@@ -15,6 +15,7 @@ import {
   type Backup,
   type BackupTableName,
   type BackupTables,
+  MIN_IMPORT_SCHEMA_VERSION,
   SCHEMA_VERSION,
 } from './backup';
 import type { RotaDay } from '../engine/types';
@@ -275,7 +276,7 @@ const backupSchema = z
   .object({
     app: z.literal(BACKUP_APP),
     formatVersion: z.literal(BACKUP_FORMAT_VERSION),
-    schemaVersion: z.literal(SCHEMA_VERSION),
+    schemaVersion: z.number().int().min(MIN_IMPORT_SCHEMA_VERSION).max(SCHEMA_VERSION),
     exportedAt: z.string().datetime(),
     tables: tablesSchema,
   })
@@ -295,7 +296,7 @@ export function parseBackup(input: unknown): ParseBackupResult {
   }
   if (typeof schemaVersion === 'number' && formatVersion === BACKUP_FORMAT_VERSION) {
     if (schemaVersion > SCHEMA_VERSION) return { ok: false, reason: 'newer-schema' };
-    if (schemaVersion < SCHEMA_VERSION) return { ok: false, reason: 'older-schema' };
+    if (schemaVersion < MIN_IMPORT_SCHEMA_VERSION) return { ok: false, reason: 'older-schema' };
   }
   const result = backupSchema.safeParse(input);
   if (!result.success) return { ok: false, reason: 'invalid' };

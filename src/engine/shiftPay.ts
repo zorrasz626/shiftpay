@@ -14,7 +14,7 @@ import { applyOvertime, isOvertimeRule, overtimeTail, topOvertimeRule, weekStart
 import type { OvertimeTails } from './overtime';
 import { applyPremiums } from './premiums';
 import { segmentShift } from './segment';
-import { minutesBetween } from './time';
+import { addLocalDays, minutesBetween } from './time';
 import type {
   Job,
   LocalDate,
@@ -107,6 +107,24 @@ export interface DateRange {
 }
 
 /**
+ * Dates of the shifts that can change pay in `period`: the period itself,
+ * widened to whole weeks for each weekly OT rule (a shift only counts towards
+ * the week of its own date, so shifts outside those weeks never matter).
+ */
+function relevantDates(period: DateRange, otRules: OvertimeRule[]): DateRange {
+  let { start, end } = period;
+  for (const rule of otRules) {
+    if (rule.type !== 'overtime_weekly') continue;
+    const weekStartsOn = rule.weekStartsOn ?? 1;
+    const first = weekStart(period.start, weekStartsOn);
+    const last = addLocalDays(weekStart(period.end, weekStartsOn), 6);
+    if (first < start) start = first;
+    if (last > end) end = last;
+  }
+  return { start, end };
+}
+
+/**
  * Pay breakdowns for the shifts dated within `period` (input order), with
  * daily, weekly and period OT. A shift belongs to the week of `shift.date`;
  * thresholds are counted chronologically (by start). Shifts dated before
@@ -122,8 +140,11 @@ export function calculateShifts(
 ): ShiftBreakdown[] {
   const jobRules = rules.filter((r) => r.jobId === job.id);
   const otRules = jobRules.filter(isOvertimeRule);
+  // Only shifts that can change the period's pay are segmented, so the cost
+  // follows the period, not the whole history passed in.
+  const relevant = relevantDates(period, otRules);
   const items = shifts
-    .filter((shift) => shift.jobId === job.id)
+    .filter((shift) => shift.jobId === job.id && shift.date >= relevant.start && shift.date <= relevant.end)
     .map((shift) => prepare(shift, job, jobRules, bankHolidays));
   const inPeriod = (item: Item) => item.shift.date >= period.start && item.shift.date <= period.end;
   // Array.prototype.sort is stable: equal starts keep input order.

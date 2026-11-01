@@ -5,7 +5,7 @@
  */
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '../../components/Button';
@@ -211,7 +211,16 @@ function ShiftCard({
               <Button
                 label="Delete"
                 variant="secondary"
-                onPress={() => void run(() => removeManualShift(db, shift.id))}
+                onPress={() =>
+                  Alert.alert('Delete this shift?', 'This removes the shift you added.', [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Delete',
+                      style: 'destructive',
+                      onPress: () => void run(() => removeManualShift(db, shift.id)),
+                    },
+                  ])
+                }
               />
             </View>
           </View>

@@ -6,6 +6,7 @@ import {
   BACKUP_FORMAT_VERSION,
   BACKUP_TABLE_ORDER,
   type Backup,
+  MIN_IMPORT_SCHEMA_VERSION,
   SCHEMA_VERSION,
   exportBackup,
 } from '../../db/backup';
@@ -178,7 +179,7 @@ describe('restoreBackup', () => {
     ],
     [
       'an older schema',
-      () => JSON.stringify({ ...valid(), schemaVersion: SCHEMA_VERSION - 1 }),
+      () => JSON.stringify({ ...valid(), schemaVersion: MIN_IMPORT_SCHEMA_VERSION - 1 }),
       'older-schema',
     ],
     ['missing tables', () => JSON.stringify(valid()), 'invalid'],

@@ -171,7 +171,9 @@ describe('Home screen', () => {
     const card = within(screen.getByTestId('net-pay-card'));
     expect(card.getByLabelText(formatPence(net.netPence))).toBeTruthy();
     expect(card.getByText('Using 2026/27 tax year')).toBeTruthy();
-    expect(card.getByText(/Estimates only/)).toBeTruthy();
+    // Disclaimer exactly once on the screen, outside the card.
+    expect(card.queryByText(/Estimates only/)).toBeNull();
+    expect(screen.getAllByText(/Estimates only/)).toHaveLength(1);
     expect(screen.queryByTestId('pro-upsell')).toBeNull();
   });
 
@@ -187,8 +189,9 @@ describe('Home screen', () => {
     ).toBeTruthy();
   });
 
-  it('renders only the disclaimer before a job exists', async () => {
+  it('shows an empty state and the disclaimer before a job exists', async () => {
     await render(<HomeScreen />);
+    expect(screen.getByText('No job set up yet. Add one to see what you have earned.')).toBeTruthy();
     expect(screen.getByText(/Estimates only/)).toBeTruthy();
     expect(screen.queryByText('Earned so far this period')).toBeNull();
     expect(screen.queryByText('Next shift')).toBeNull();

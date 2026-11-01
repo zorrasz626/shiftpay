@@ -17,7 +17,7 @@ import { instantToLocal } from '../../src/engine/time';
 import { DaySheet } from '../../src/features/calendar/DaySheet';
 import { useJobsStore } from '../../src/store/jobsStore';
 import { useShiftsStore } from '../../src/store/shiftsStore';
-import { type Colors, tabularNums } from '../../src/theme/tokens';
+import { type Colors, maxFontScale, tabularNums } from '../../src/theme/tokens';
 import { useTheme } from '../../src/theme/useTheme';
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
@@ -31,6 +31,8 @@ const WEEKDAY_NAMES = [
   'Sunday',
 ] as const;
 const MAX_CODES = 2;
+/** Today marker ring width (dp). */
+const TODAY_RING = 2;
 
 const LEGEND: readonly { kind: CalendarShiftKind; code: string; label: string }[] = [
   { kind: 'day', code: 'D', label: 'Day' },
@@ -47,8 +49,13 @@ function parseYearMonth(date: string): YearMonth {
   return { year: Number(date.slice(0, 4)), month: Number(date.slice(5, 7)) };
 }
 
-/** Text + fill colours per shift kind; tokens only. */
-function codeStyle(colors: Colors, kind: CalendarShiftKind) {
+/** Text + fill colours per shift kind; tokens only. Muted (adjacent month): inkMuted, no fill. */
+function codeStyle(colors: Colors, kind: CalendarShiftKind, muted: boolean) {
+  if (muted) {
+    return kind === 'cancelled'
+      ? { color: colors.inkMuted, textDecorationLine: 'line-through' as const }
+      : { color: colors.inkMuted };
+  }
   switch (kind) {
     case 'day':
       return { color: colors.ink };
@@ -65,16 +72,25 @@ function codeStyle(colors: Colors, kind: CalendarShiftKind) {
   }
 }
 
-function ShiftCode({ kind, code }: { kind: CalendarShiftKind; code: string }) {
+function ShiftCode({
+  kind,
+  code,
+  muted = false,
+}: {
+  kind: CalendarShiftKind;
+  code: string;
+  muted?: boolean;
+}) {
   const { colors, typography, spacing, radius } = useTheme();
   return (
     <Text
+      maxFontSizeMultiplier={maxFontScale.cell}
       style={[
         typography.caption,
         styles.nums,
         styles.code,
         { borderRadius: radius.chip, paddingHorizontal: spacing.xs },
-        codeStyle(colors, kind),
+        codeStyle(colors, kind, muted),
       ]}
     >
       {code}
@@ -96,10 +112,13 @@ function dayLabel(day: CalendarDay, column: number): string {
 function DayCell({
   day,
   column,
+  selected,
   onPress,
 }: {
   day: CalendarDay;
   column: number;
+  /** True while this day's sheet is open. */
+  selected: boolean;
   onPress: (date: string) => void;
 }) {
   const { colors, typography, spacing } = useTheme();
@@ -110,6 +129,7 @@ function DayCell({
       testID={`day-${day.date}`}
       accessibilityRole="button"
       accessibilityLabel={dayLabel(day, column)}
+      accessibilityState={{ selected }}
       onPress={() => onPress(day.date)}
       style={({ pressed }) => [
         styles.cell,
@@ -119,20 +139,37 @@ function DayCell({
     >
       <View
         testID={day.isToday ? 'today-marker' : undefined}
-        style={[styles.dateMarker, day.isToday && { backgroundColor: colors.signal }]}
+        style={[
+          styles.dateMarker,
+          // The ink ring marks today without relying on the signal fill colour (WCAG 1.4.11).
+          day.isToday && {
+            backgroundColor: colors.signal,
+            borderColor: colors.ink,
+            borderWidth: TODAY_RING,
+          },
+        ]}
       >
-        <Text style={[typography.body, styles.nums, { color: numberColor }]}>{day.dayOfMonth}</Text>
+        <Text
+          maxFontSizeMultiplier={maxFontScale.cell}
+          style={[typography.body, styles.nums, { color: numberColor }]}
+        >
+          {day.dayOfMonth}
+        </Text>
       </View>
       {day.isBankHoliday && (
-        <Text style={[typography.caption, { color: day.inMonth ? colors.ink : colors.inkMuted }]}>
+        <Text
+          maxFontSizeMultiplier={maxFontScale.cell}
+          style={[typography.caption, { color: day.inMonth ? colors.ink : colors.inkMuted }]}
+        >
           BH
         </Text>
       )}
       {day.shifts.slice(0, MAX_CODES).map((s) => (
-        <ShiftCode key={s.id} kind={s.kind} code={s.code} />
+        <ShiftCode key={s.id} kind={s.kind} code={s.code} muted={!day.inMonth} />
       ))}
       {extra > 0 && (
         <Text
+          maxFontSizeMultiplier={maxFontScale.cell}
           style={[typography.caption, styles.nums, { color: colors.inkMuted }]}
         >{`+${extra}`}</Text>
       )}
@@ -210,6 +247,9 @@ export function CalendarView({ title, intro, footer }: CalendarViewProps) {
   if (job === undefined || grid === null) {
     return (
       <Screen title={title} footer={footer} bottomInset={footer !== undefined}>
+        <Text style={[typography.body, { color: colors.inkMuted, marginBottom: spacing.lg }]}>
+          No job set up yet. Add one to see your shifts.
+        </Text>
         <Disclaimer />
       </Screen>
     );
@@ -250,7 +290,7 @@ export function CalendarView({ title, intro, footer }: CalendarViewProps) {
 
       <View style={[styles.row, grid48, { marginTop: spacing.md }]}>
         {WEEKDAYS.map((d) => (
-          <Text key={d} style={[muted, styles.weekday]}>
+          <Text key={d} maxFontSizeMultiplier={maxFontScale.cell} style={[muted, styles.weekday]}>
             {d}
           </Text>
         ))}
@@ -258,7 +298,13 @@ export function CalendarView({ title, intro, footer }: CalendarViewProps) {
       {grid.weeks.map((week) => (
         <View key={week[0].date} style={[styles.row, grid48]}>
           {week.map((day, column) => (
-            <DayCell key={day.date} day={day} column={column} onPress={setOpenDate} />
+            <DayCell
+              key={day.date}
+              day={day}
+              column={column}
+              selected={day.date === openDate}
+              onPress={setOpenDate}
+            />
           ))}
         </View>
       ))}

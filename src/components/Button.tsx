@@ -12,6 +12,8 @@ export type ButtonProps = {
   readonly disabled?: boolean;
   /** Spoken instead of `label` when the label alone is unclear out of context. */
   readonly accessibilityLabel?: string;
+  /** Spoken after the label to describe what happens on press, when that isn't obvious. */
+  readonly accessibilityHint?: string;
 };
 
 type VariantColors = {
@@ -40,6 +42,7 @@ export function Button({
   variant = 'primary',
   disabled = false,
   accessibilityLabel,
+  accessibilityHint,
 }: ButtonProps) {
   const { colors, typography, spacing, radius } = useTheme();
   const v = variantColors(colors, variant, disabled);
@@ -48,6 +51,7 @@ export function Button({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}

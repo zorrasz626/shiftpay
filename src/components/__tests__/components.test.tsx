@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { StyleSheet, Text } from 'react-native';
 
-import { darkColors, lightColors, type Colors } from '../../theme/tokens';
+import { darkColors, lightColors, maxFontScale, type Colors } from '../../theme/tokens';
 import { BigNumber } from '../BigNumber';
 import { Button } from '../Button';
 import { Card } from '../Card';
@@ -42,11 +42,22 @@ describe.each(themes)('components in %s theme', (scheme, colors) => {
       expect(styleOf(poundsEl).fontVariant).toEqual(['tabular-nums']);
       expect(styleOf(fractionEl).fontVariant).toEqual(['tabular-nums']);
       expect(screen.getByLabelText(full)).toBeTruthy();
+      // Fixed-size figure: capped scaling, pounds shrink to fit on one line.
+      expect(poundsEl.props).toMatchObject({
+        numberOfLines: 1,
+        adjustsFontSizeToFit: true,
+        maxFontSizeMultiplier: maxFontScale.figure,
+      });
+      expect(fractionEl.props.maxFontSizeMultiplier).toBe(maxFontScale.figure);
     });
 
     it('shows the caption in inkMuted', async () => {
       await render(<BigNumber pence={100} caption="Earned so far this period" />);
-      expect(styleOf(screen.getByText('Earned so far this period')).color).toBe(colors.inkMuted);
+      const caption = screen.getByText('Earned so far this period');
+      expect(styleOf(caption).color).toBe(colors.inkMuted);
+      // Body text scales fully.
+      expect(caption.props.maxFontSizeMultiplier).toBeUndefined();
+      expect(caption.props.allowFontScaling).not.toBe(false);
     });
   });
 

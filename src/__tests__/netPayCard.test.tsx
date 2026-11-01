@@ -65,7 +65,8 @@ describe('NetPayCard', () => {
     expect(GROSS - sumPence(shownDeductions())).toBe(expected.netPence);
     expect(screen.getByText(`Using ${TAX_YEARS[TAX_YEARS.length - 1].id} tax year`)).toBeTruthy();
     expect(screen.queryByText(ASSUMED_YEAR_TEXT)).toBeNull();
-    expect(screen.getByText(/Estimates only/)).toBeTruthy();
+    // The host screen shows the disclaimer; the card does not repeat it.
+    expect(screen.queryByText(/Estimates only/)).toBeNull();
   });
 
   it('shows every non-zero deduction; net = gross − shown deductions', async () => {

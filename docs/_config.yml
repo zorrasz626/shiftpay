@@ -1,0 +1,4 @@
+# GitHub Pages (Jekyll) settings: publish only the privacy policy.
+exclude:
+  - store-listing.md
+  - RELEASE.md

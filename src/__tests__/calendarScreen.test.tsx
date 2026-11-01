@@ -5,7 +5,8 @@ import CalendarScreen from '../../app/(tabs)/calendar';
 import { useJobsStore } from '../store/jobsStore';
 import { useShiftsStore } from '../store/shiftsStore';
 import { job, resetStores, shift } from '../store/testFixtures';
-import { darkColors, lightColors } from '../theme/tokens';
+import { contrastRatio } from '../theme/contrast';
+import { darkColors, lightColors, maxFontScale } from '../theme/tokens';
 
 let mockScheme: 'light' | 'dark' = 'light';
 // The day sheet imports the app db; expo-sqlite does not run in Jest.
@@ -35,9 +36,21 @@ const shifts = [
   shift('2026-06-19', { overtimeFlag: true }),
   shift('2026-06-20', { status: 'cancelled' }),
   shift('2026-06-22', { status: 'holiday' }),
-  shift('2026-06-24', { id: 'a', start: '2026-06-24T05:00:00.000Z', end: '2026-06-24T09:00:00.000Z' }),
-  shift('2026-06-24', { id: 'b', start: '2026-06-24T10:00:00.000Z', end: '2026-06-24T14:00:00.000Z' }),
-  shift('2026-06-24', { id: 'c', start: '2026-06-24T15:00:00.000Z', end: '2026-06-24T17:00:00.000Z' }),
+  shift('2026-06-24', {
+    id: 'a',
+    start: '2026-06-24T05:00:00.000Z',
+    end: '2026-06-24T09:00:00.000Z',
+  }),
+  shift('2026-06-24', {
+    id: 'b',
+    start: '2026-06-24T10:00:00.000Z',
+    end: '2026-06-24T14:00:00.000Z',
+  }),
+  shift('2026-06-24', {
+    id: 'c',
+    start: '2026-06-24T15:00:00.000Z',
+    end: '2026-06-24T17:00:00.000Z',
+  }),
   shift('2026-07-03', { status: 'sick' }),
 ];
 
@@ -130,8 +143,9 @@ describe('Calendar screen', () => {
     expect(screen.getByLabelText('Next month')).toBeDisabled();
   });
 
-  it('renders only the disclaimer before a job exists', async () => {
+  it('shows an empty state and the disclaimer before a job exists', async () => {
     await render(<CalendarScreen />);
+    expect(screen.getByText('No job set up yet. Add one to see your shifts.')).toBeTruthy();
     expect(screen.getByText(/Estimates only/)).toBeTruthy();
     expect(screen.queryByText('June 2026')).toBeNull();
     expect(screen.queryByTestId('legend')).toBeNull();
@@ -147,7 +161,8 @@ describe('Calendar screen', () => {
     expect(styleOf(cell('2026-06-10').getByText('D')).color).toBe(colors.ink);
     expect(styleOf(cell('2026-06-17').getByText('N')).color).toBe(colors.night);
     expect(styleOf(cell('2026-06-22').getByText('H')).color).toBe(colors.positive);
-    expect(styleOf(cell('2026-07-03').getByText('S')).color).toBe(colors.alert);
+    // Adjacent-month (July) codes are muted in the June grid; in-month they keep their colour.
+    expect(styleOf(cell('2026-07-03').getByText('S')).color).toBe(colors.inkMuted);
     const cancelled = styleOf(cell('2026-06-20').getByText('X'));
     expect(cancelled.color).toBe(colors.inkMuted);
     expect(cancelled.textDecorationLine).toBe('line-through');
@@ -156,5 +171,82 @@ describe('Calendar screen', () => {
     expect(overtime.color).toBe(colors.onSignal);
     expect(styleOf(cell('2026-06-17').getByText('17')).color).toBe(colors.onSignal);
     expect(styleOf(cell('2026-06-10').getByText('10')).color).toBe(colors.ink);
+
+    await fireEvent.press(screen.getByLabelText('Next month'));
+    expect(styleOf(cell('2026-07-03').getByText('S')).color).toBe(colors.alert);
+  });
+
+  it.each([
+    ['light', lightColors],
+    ['dark', darkColors],
+  ] as const)('mutes the whole adjacent-month cell in %s mode', async (scheme, colors) => {
+    mockScheme = scheme;
+    useJobsStore.setState({ jobs: [job], loaded: true });
+    useShiftsStore.setState({
+      shifts: [
+        shift('2026-06-19', { overtimeFlag: true }),
+        shift('2026-07-01', { overtimeFlag: true }),
+        shift('2026-07-02', { status: 'cancelled' }),
+        shift('2026-07-03', { status: 'holiday' }),
+      ],
+      range: RANGE,
+      loaded: true,
+    });
+    await render(<CalendarScreen />);
+
+    const overtime = styleOf(cell('2026-07-01').getByText('OT'));
+    expect(overtime.color).toBe(colors.inkMuted);
+    expect(overtime.backgroundColor).toBeUndefined();
+    const cancelled = styleOf(cell('2026-07-02').getByText('X'));
+    expect(cancelled.color).toBe(colors.inkMuted);
+    expect(cancelled.textDecorationLine).toBe('line-through');
+    expect(styleOf(cell('2026-07-03').getByText('H')).color).toBe(colors.inkMuted);
+    expect(styleOf(cell('2026-07-01').getByText('1')).color).toBe(colors.inkMuted);
+    // In-month look unchanged.
+    const inMonth = styleOf(cell('2026-06-19').getByText('OT'));
+    expect(inMonth.backgroundColor).toBe(colors.signal);
+    expect(inMonth.color).toBe(colors.onSignal);
+  });
+
+  it.each([
+    ['light', lightColors],
+    ['dark', darkColors],
+  ] as const)(
+    'rings today in ink so the signal fill is not the only cue (%s)',
+    async (scheme, colors) => {
+      mockScheme = scheme;
+      seed();
+      await render(<CalendarScreen />);
+      const marker = styleOf(screen.getByTestId('today-marker'));
+      expect(marker.backgroundColor).toBe(colors.signal);
+      expect(marker.borderColor).toBe(colors.ink);
+      expect(marker.borderWidth).toBeGreaterThanOrEqual(2);
+      expect(contrastRatio(colors.ink, colors.board)).toBeGreaterThanOrEqual(3);
+    },
+  );
+
+  it('caps font scaling in the fixed-size grid but not in body text', async () => {
+    seed();
+    await render(<CalendarScreen />);
+    const capped = [
+      screen.getByText('Mon'),
+      cell('2026-06-10').getByText('10'),
+      cell('2026-06-10').getByText('D'),
+      cell('2026-06-24').getByText('+1'),
+    ];
+    for (const el of capped) expect(el.props.maxFontSizeMultiplier).toBe(maxFontScale.cell);
+
+    await fireEvent.press(screen.getByLabelText('Previous month'));
+    expect(cell('2026-05-25').getByText('BH').props.maxFontSizeMultiplier).toBe(maxFontScale.cell);
+
+    const body = [
+      title('May 2026'),
+      within(screen.getByTestId('legend')).getByText('Night'),
+      screen.getByText(/Estimates only/),
+    ];
+    for (const el of body) {
+      expect(el.props.maxFontSizeMultiplier).toBeUndefined();
+      expect(el.props.allowFontScaling).not.toBe(false);
+    }
   });
 });

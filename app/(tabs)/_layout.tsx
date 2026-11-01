@@ -1,12 +1,13 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Redirect, Tabs } from 'expo-router';
 import { type ComponentProps, useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { type ColorValue, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useJobsStore } from '../../src/store/jobsStore';
 import { needsOnboarding, useOnboardingStore } from '../../src/store/onboardingStore';
 import { useSettingsStore } from '../../src/store/settingsStore';
+import { maxFontScale } from '../../src/theme/tokens';
 import { useTheme } from '../../src/theme/useTheme';
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -32,6 +33,41 @@ function TabIcon({ name, focused }: { name: IconName; focused: boolean }) {
   );
 }
 
+/**
+ * Tab label: capped font scaling (fixed-height bar) and an underline on the active tab,
+ * so the active state is not shown by the signal marker colour alone (WCAG 1.4.11).
+ */
+function TabLabel({
+  focused,
+  color,
+  children,
+}: {
+  focused: boolean;
+  color: ColorValue;
+  children: string;
+}) {
+  const { typography } = useTheme();
+  return (
+    <Text
+      numberOfLines={1}
+      adjustsFontSizeToFit
+      maxFontSizeMultiplier={maxFontScale.tabLabel}
+      style={[
+        styles.label,
+        {
+          color,
+          fontFamily: typography.bodyMedium.fontFamily,
+          fontSize: typography.caption.fontSize,
+          lineHeight: typography.caption.lineHeight,
+          textDecorationLine: focused ? 'underline' : 'none',
+        },
+      ]}
+    >
+      {children}
+    </Text>
+  );
+}
+
 /** `tabBarIcon` option for a tab; the tint colours are taken from the theme in TabIcon. */
 function icon(name: IconName) {
   const renderTabIcon = ({ focused }: { focused: boolean }) => (
@@ -41,7 +77,7 @@ function icon(name: IconName) {
 }
 
 export default function TabsLayout() {
-  const { colors, typography, spacing } = useTheme();
+  const { colors, spacing } = useTheme();
   const insets = useSafeAreaInsets();
   const onboarding = needsOnboarding(useSettingsStore((s) => s.values));
   const existingJob = useJobsStore((s) => s.jobs[0]);
@@ -78,11 +114,7 @@ export default function TabsLayout() {
         },
         tabBarItemStyle: { paddingTop: spacing.xs },
         tabBarIconStyle: styles.iconSlot,
-        tabBarLabelStyle: {
-          fontFamily: typography.bodyMedium.fontFamily,
-          fontSize: typography.caption.fontSize,
-          lineHeight: typography.caption.lineHeight,
-        },
+        tabBarLabel: TabLabel,
       }}
     >
       <Tabs.Screen name="index" options={{ title: 'Home', tabBarIcon: icon('home-outline') }} />
@@ -102,5 +134,6 @@ export default function TabsLayout() {
 const styles = StyleSheet.create({
   iconSlot: { width: 48, height: MARKER_HEIGHT + MARKER_GAP + ICON_SIZE },
   iconColumn: { alignItems: 'center' },
+  label: { textAlign: 'center' },
   marker: { width: 32, height: MARKER_HEIGHT, borderRadius: 2, marginBottom: MARKER_GAP },
 });

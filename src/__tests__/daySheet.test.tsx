@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
-import { StyleSheet } from 'react-native';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
+import { Alert, StyleSheet } from 'react-native';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 
 import CalendarScreen from '../../app/(tabs)/calendar';
@@ -243,7 +243,29 @@ describe('Day sheet', () => {
     });
     expect(card('m-1').getByText('10:00–15:30')).toBeTruthy();
 
+    // Delete asks first; Cancel keeps the shift.
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const choose = async (text: string) => {
+      const buttons = alert.mock.lastCall?.[2] ?? [];
+      const button = buttons.find((b) => b.text === text);
+      button?.onPress?.();
+      await act(async () => {});
+    };
     await press(card('m-1').getByRole('button', { name: 'Delete' }));
+    expect(alert).toHaveBeenCalledTimes(1);
+    expect(alert.mock.lastCall?.[0]).toBe('Delete this shift?');
+    expect(alert.mock.lastCall?.[2]).toEqual([
+      expect.objectContaining({ text: 'Cancel', style: 'cancel' }),
+      expect.objectContaining({ text: 'Delete', style: 'destructive' }),
+    ]);
+    await choose('Cancel');
+    expect(storeShift('m-1')).toBeDefined();
+    expect(await dbShift('m-1')).toBeDefined();
+
+    await press(card('m-1').getByRole('button', { name: 'Delete' }));
+    expect(alert).toHaveBeenCalledTimes(2);
+    await choose('Delete');
+    alert.mockRestore();
     await waitFor(() => expect(storeShift('m-1')).toBeUndefined());
     expect(await dbShift('m-1')).toBeUndefined();
     expect(screen.getByText('No shifts on this day.')).toBeTruthy();

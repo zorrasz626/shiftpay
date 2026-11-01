@@ -98,6 +98,9 @@ export default function HomeScreen() {
   if (job === undefined || summary === null) {
     return (
       <Screen title="ShiftPay">
+        <Text style={[typography.body, { color: colors.inkMuted, marginBottom: spacing.lg }]}>
+          No job set up yet. Add one to see what you have earned.
+        </Text>
         <Disclaimer />
       </Screen>
     );

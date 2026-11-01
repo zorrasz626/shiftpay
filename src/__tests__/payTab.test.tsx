@@ -234,7 +234,9 @@ describe('Period detail screen', () => {
     const card = within(screen.getByTestId('net-pay-card'));
     expect(card.getByLabelText(formatPence(net.netPence))).toBeTruthy();
     expect(card.getByText('Using 2026/27 tax year')).toBeTruthy();
-    expect(card.getByText(/Estimates only/)).toBeTruthy();
+    // Disclaimer exactly once on the screen, outside the card.
+    expect(card.queryByText(/Estimates only/)).toBeNull();
+    expect(screen.getAllByText(/Estimates only/)).toHaveLength(1);
     expect(screen.queryByTestId('pro-upsell')).toBeNull();
   });
 

@@ -154,7 +154,11 @@ export const shifts = sqliteTable(
     /** Set on any manual/status edit so regeneration never overwrites it. */
     userModified: integer('user_modified', { mode: 'boolean' }).notNull().default(false),
   },
-  (t) => [index('shifts_job_id_date_idx').on(t.jobId, t.date)],
+  (t) => [
+    index('shifts_job_id_date_idx').on(t.jobId, t.date),
+    // Date-range reads across all jobs (the shifts store's window).
+    index('shifts_date_idx').on(t.date),
+  ],
 );
 
 export const payslips = sqliteTable(

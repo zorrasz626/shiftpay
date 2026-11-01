@@ -13,7 +13,7 @@ import { useJobsStore } from '../store/jobsStore';
 import { useOnboardingStore } from '../store/onboardingStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { job, resetStores } from '../store/testFixtures';
-import { darkColors, fontFamily, lightColors, type Colors } from '../theme/tokens';
+import { darkColors, fontFamily, lightColors, maxFontScale, type Colors } from '../theme/tokens';
 
 let mockScheme: 'light' | 'dark' = 'light';
 // The day sheet imports the app db; expo-sqlite does not run in Jest.
@@ -89,6 +89,12 @@ describe.each(themes)('tab screens in %s theme', (scheme, colors) => {
     }
     expect(styleOf(screen.getByText('Home')).color).toBe(colors.ink);
     expect(styleOf(screen.getByText('Pay')).color).toBe(colors.inkMuted);
+    // The active tab is underlined too, not shown by the signal marker colour alone.
+    expect(styleOf(screen.getByText('Home')).textDecorationLine).toBe('underline');
+    expect(styleOf(screen.getByText('Pay')).textDecorationLine).toBe('none');
+    for (const label of ['Home', 'Calendar', 'Pay', 'Settings']) {
+      expect(screen.getByText(label).props.maxFontSizeMultiplier).toBe(maxFontScale.tabLabel);
+    }
   });
 });
 
