@@ -2,20 +2,24 @@
  * Settings tab: the job (name and base rate, opens Job settings), the pay
  * rules (opens the rule list), the rota (opens the rota editor), holiday
  * (opens Holiday settings), shift reminders (opens Reminder settings), backup
- * export (share sheet) and the disclaimer. Free tier = one job, one rota pattern.
+ * export (share sheet) and import (file picker), and the disclaimer. Free tier
+ * = one job, one rota pattern.
  */
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '../../src/components/Button';
 import { Card } from '../../src/components/Card';
 import { Disclaimer } from '../../src/components/Disclaimer';
 import { Screen } from '../../src/components/Screen';
+import type { Backup } from '../../src/db/backup';
+import type { BackupRejectReason } from '../../src/db/backupImport';
 import { db } from '../../src/db/client';
 import { formatPence } from '../../src/engine/money';
 import { formatLeadMinutes, reminderSettings } from '../../src/engine/reminders';
 import type { Job, RotaPattern } from '../../src/engine/types';
+import { formatBackupDate, restoreBackup } from '../../src/services/backupRestore';
 import { exportBackupToShare } from '../../src/services/backupShare';
 import { useJobsStore } from '../../src/store/jobsStore';
 import { useRotaStore } from '../../src/store/rotaStore';
@@ -88,24 +92,81 @@ function SettingsRow({
 
 export const BACKUP_UNAVAILABLE_MESSAGE = "Sharing isn't available on this device.";
 export const BACKUP_FAILED_MESSAGE = "The backup couldn't be exported. Try again.";
+export const RESTORE_CONFIRM_TITLE = 'Replace all your data?';
+export const RESTORE_DONE_MESSAGE = 'Backup restored.';
+export const RESTORE_FAILED_MESSAGE = "The backup couldn't be restored. Try again.";
+export const RESTORE_REJECT_MESSAGES: Record<BackupRejectReason, string> = {
+  'not-shiftpay': "This file isn't a ShiftPay backup.",
+  'newer-format': 'This backup was made by a newer version of ShiftPay. Update the app and try again.',
+  'newer-schema': 'This backup was made by a newer version of ShiftPay. Update the app and try again.',
+  invalid: 'This backup file is damaged or incomplete.',
+  'older-schema': "This backup uses an older format that isn't supported yet.",
+};
 
-/** Backup card: "Export backup" writes the JSON file and opens the share sheet. */
+/** "The backup from 1 Nov 2026 will replace everything in the app. ..." */
+export function restoreConfirmBody(backup: Backup): string {
+  return (
+    `The backup from ${formatBackupDate(backup.exportedAt)} will replace everything ` +
+    "in the app. This can't be undone."
+  );
+}
+
+/** Asks before replacing everything; Cancel or dismissing the dialog resolves false. */
+function confirmReplace(backup: Backup): Promise<boolean> {
+  return new Promise((resolve) => {
+    Alert.alert(
+      RESTORE_CONFIRM_TITLE,
+      restoreConfirmBody(backup),
+      [
+        { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+        { text: 'Replace', style: 'destructive', onPress: () => resolve(true) },
+      ],
+      { cancelable: true, onDismiss: () => resolve(false) },
+    );
+  });
+}
+
+type BackupMessage = { text: string; tone: 'positive' | 'alert' };
+
+/**
+ * Backup card: "Export backup" writes the JSON file and opens the share sheet;
+ * "Import backup" picks a file, confirms and replaces all data with it.
+ */
 function BackupCard() {
   const { colors, typography, spacing } = useTheme();
-  const [exporting, setExporting] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<BackupMessage | null>(null);
 
   async function onExport() {
-    setExporting(true);
+    setBusy(true);
     setMessage(null);
     try {
       const result = await exportBackupToShare(db, new Date().toISOString());
-      if (result.status === 'unavailable') setMessage(BACKUP_UNAVAILABLE_MESSAGE);
+      if (result.status === 'unavailable') {
+        setMessage({ text: BACKUP_UNAVAILABLE_MESSAGE, tone: 'alert' });
+      }
     } catch (e) {
       console.warn('Backup export failed.', e);
-      setMessage(BACKUP_FAILED_MESSAGE);
+      setMessage({ text: BACKUP_FAILED_MESSAGE, tone: 'alert' });
     } finally {
-      setExporting(false);
+      setBusy(false);
+    }
+  }
+
+  async function onImport() {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const result = await restoreBackup(db, new Date().toISOString(), confirmReplace);
+      if (result === 'restored') setMessage({ text: RESTORE_DONE_MESSAGE, tone: 'positive' });
+      else if (result !== 'cancelled') {
+        setMessage({ text: RESTORE_REJECT_MESSAGES[result], tone: 'alert' });
+      }
+    } catch (e) {
+      console.warn('Backup import failed.', e);
+      setMessage({ text: RESTORE_FAILED_MESSAGE, tone: 'alert' });
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -117,15 +178,22 @@ function BackupCard() {
       <Button
         label="Export backup"
         variant="secondary"
-        disabled={exporting}
+        disabled={busy}
         onPress={() => void onExport()}
+      />
+      <View style={{ height: spacing.sm }} />
+      <Button
+        label="Import backup"
+        variant="secondary"
+        disabled={busy}
+        onPress={() => void onImport()}
       />
       {message !== null && (
         <Text
           accessibilityLiveRegion="polite"
-          style={[typography.body, { color: colors.alert, marginTop: spacing.sm }]}
+          style={[typography.body, { color: colors[message.tone], marginTop: spacing.sm }]}
         >
-          {message}
+          {message.text}
         </Text>
       )}
     </Card>
