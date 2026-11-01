@@ -1,7 +1,9 @@
 /**
  * Pay rule editor: one premium or overtime rule. `id` is a rule id, or 'new'
  * with a `type` param. Edits are local until Save, which replaces the whole
- * rule; Back discards them. Delete asks for confirmation first.
+ * rule; Back discards them. Delete asks for confirmation first. A 'new' rule
+ * past the free limit shows a Pro upsell instead (deep-link guard); existing
+ * rules can always be edited and deleted.
  */
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -10,6 +12,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Button } from '../../../src/components/Button';
 import { Chip } from '../../../src/components/Chip';
 import { Disclaimer } from '../../../src/components/Disclaimer';
+import { ProUpsell } from '../../../src/components/ProUpsell';
 import { Screen } from '../../../src/components/Screen';
 import { TextField } from '../../../src/components/TextField';
 import { db } from '../../../src/db/client';
@@ -21,6 +24,8 @@ import {
   ruleFormErrors,
   ruleToForm,
 } from '../../../src/engine/ruleForm';
+import { FREE_LIMITS, canAddRule } from '../../../src/features/pro/gates';
+import { useEntitlement } from '../../../src/features/pro/useEntitlement';
 import type { DayOfWeek, PremiumRuleType } from '../../../src/engine/types';
 import { useJobsStore } from '../../../src/store/jobsStore';
 import { newId } from '../../../src/store/onboardingStore';
@@ -281,8 +286,29 @@ export default function RuleEditorScreen() {
   const job = useJobsStore((s) => s.jobs[0]);
   const rule = useRulesStore((s) => s.rules.find((r) => r.id === id));
   const [newRuleId] = useState(() => newId('rule'));
+  // The rule being added doesn't count, so saving it doesn't flip to the upsell.
+  const otherRuleCount = useRulesStore(
+    (s) => s.rules.filter((r) => r.jobId === job?.id && r.id !== newRuleId).length,
+  );
+  const { isPro } = useEntitlement();
 
   if (job !== undefined && id === 'new' && isRuleType(type)) {
+    if (!canAddRule(otherRuleCount, isPro)) {
+      return (
+        <Screen
+          title="Add a pay rule"
+          bottomInset
+          footer={<Button label="Back" variant="secondary" onPress={() => router.back()} />}
+        >
+          <ProUpsell
+            detail={`Free includes ${FREE_LIMITS.rules} pay rules.`}
+            text="More pay rules"
+          />
+          <View style={{ height: spacing.lg }} />
+          <Disclaimer />
+        </Screen>
+      );
+    }
     return <RuleForm initial={newRuleForm(type)} ruleId={newRuleId} jobId={job.id} isNew />;
   }
   if (rule !== undefined) {

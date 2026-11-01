@@ -96,6 +96,8 @@ export interface PeriodDetailShift {
   start: IsoInstant;
   end: IsoInstant;
   status: ShiftStatus;
+  /** Paid hours (after unpaid breaks; 0 for a cancelled shift). */
+  paidHours: number;
   totalGrossPence: number;
 }
 
@@ -175,6 +177,7 @@ export function periodDetail({
         start: s.start,
         end: s.end,
         status: s.status,
+        paidHours: b.paidHours,
         totalGrossPence: b.totalGrossPence,
       };
     })

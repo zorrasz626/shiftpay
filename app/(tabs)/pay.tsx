@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { Button } from '../../src/components/Button';
 import { Card } from '../../src/components/Card';
 import { Chip } from '../../src/components/Chip';
 import { Disclaimer } from '../../src/components/Disclaimer';
@@ -74,6 +75,7 @@ function PeriodRow({ item, today }: { item: PayPeriodListItem; today: string }) 
 
 export default function PayScreen() {
   const { colors, typography, spacing } = useTheme();
+  const router = useRouter();
   const job = useJobsStore((s) => s.jobs[0]);
   const shifts = useShiftsStore((s) => s.shifts);
   const bankHolidays = useBankHolidaysStore((s) => s.lookup);
@@ -121,6 +123,13 @@ export default function PayScreen() {
           <View style={{ height: spacing.lg }} />
         </>
       )}
+      <Button
+        label="Stats"
+        variant="secondary"
+        accessibilityLabel="Stats: earnings by month, overtime and premiums"
+        onPress={() => router.push('/stats')}
+      />
+      <View style={{ height: spacing.lg }} />
       <Disclaimer />
     </Screen>
   );

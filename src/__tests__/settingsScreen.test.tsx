@@ -22,6 +22,7 @@ import { createTestDb } from '../db/testDb';
 import { homeSummary } from '../engine/homeSummary';
 import { formatPence } from '../engine/money';
 import type { PremiumRule } from '../engine/types';
+import { useProStore } from '../features/pro/proStore';
 import { type BackupExportResult, exportBackupToShare } from '../services/backupShare';
 import { useJobsStore } from '../store/jobsStore';
 import { useRotaStore } from '../store/rotaStore';
@@ -99,6 +100,7 @@ const saveButton = () => screen.getByRole('button', { name: 'Save' });
 
 beforeEach(async () => {
   resetStores();
+  useProStore.setState({ status: 'free', source: 'unconfigured' });
   await deleteJob(db, job.id);
   mockPush.mockClear();
   mockBack.mockClear();
@@ -154,6 +156,7 @@ describe('Settings tab backup', () => {
 
   beforeEach(() => {
     mockExport.mockReset();
+    useProStore.setState({ status: 'pro', source: 'revenuecat' });
   });
 
   it('shows the Backup card between Reminders and About, and disables Export while it runs', async () => {
@@ -211,6 +214,34 @@ describe('Settings tab backup', () => {
     } finally {
       warn.mockRestore();
     }
+  });
+});
+
+describe('Settings tab backup gating (free)', () => {
+  beforeEach(() => {
+    mockExport.mockReset();
+    mockGetDocument.mockReset();
+  });
+
+  it('shows a Pro upsell instead of Export, and keeps Import available', async () => {
+    await render(<SettingsScreen />);
+
+    expect(screen.queryByRole('button', { name: 'Export backup' })).toBeNull();
+    expect(screen.getByText('Backup to file — available with ShiftPay Pro')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'See ShiftPay Pro: Backup to file' }));
+    expect(mockPush).toHaveBeenCalledWith('/paywall');
+    expect(mockExport).not.toHaveBeenCalled();
+
+    mockGetDocument.mockResolvedValueOnce({ canceled: true, assets: null });
+    await fireEvent.press(screen.getByRole('button', { name: 'Import backup' }));
+    await waitFor(() => expect(mockGetDocument).toHaveBeenCalledTimes(1));
+  });
+
+  it('treats loading as free', async () => {
+    useProStore.setState({ status: 'loading', source: 'pending' });
+    await render(<SettingsScreen />);
+    expect(screen.queryByRole('button', { name: 'Export backup' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Import backup' })).toBeTruthy();
   });
 });
 
@@ -275,6 +306,7 @@ describe('Settings tab backup import', () => {
     mockGetDocument.mockReset();
     mockReadText.mockReset();
     alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    useProStore.setState({ status: 'pro', source: 'revenuecat' });
     await seed(job);
   });
 

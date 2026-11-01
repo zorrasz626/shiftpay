@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 
 import HomeScreen from '../../app/(tabs)/index';
@@ -8,7 +8,11 @@ import { createJob, deleteJob } from '../db/jobRepo';
 import { createShift } from '../db/shiftRepo';
 import { homeSummary } from '../engine/homeSummary';
 import { formatPence } from '../engine/money';
+import { estimateNetPay } from '../engine/netPay';
 import type { PremiumRule } from '../engine/types';
+import { useProStore } from '../features/pro/proStore';
+import { buildNetPayInput } from '../features/tax/netPayInput';
+import { DEFAULT_TAX_PROFILE } from '../features/tax/taxProfile';
 import { useJobsStore } from '../store/jobsStore';
 import { useRulesStore } from '../store/rulesStore';
 import { useShiftsStore } from '../store/shiftsStore';
@@ -71,6 +75,7 @@ beforeEach(async () => {
   await deleteJob(db, job.id); // cascades shifts
   mockPush.mockClear();
   mockScheme = 'light';
+  useProStore.setState(useProStore.getInitialState(), true);
   jest.useFakeTimers({ now: new Date(NOW) });
 });
 
@@ -146,6 +151,40 @@ describe('Home screen', () => {
     await render(<HomeScreen />);
     expect(screen.getByText('No shifts coming up')).toBeTruthy();
     expect(screen.getByLabelText('£0.00')).toBeTruthy();
+  });
+
+  it('Pro: shows the estimated take-home for the projected period total', async () => {
+    useProStore.setState({ status: 'pro', source: 'revenuecat' });
+    seed();
+    const expected = homeSummary({ shifts, job, rules: [], bankHolidays, now: NOW });
+    // Weekly period 15–21 Jun is paid Fri 26 Jun.
+    const net = estimateNetPay(
+      buildNetPayInput({
+        profile: DEFAULT_TAX_PROFILE,
+        grossPence: expected.projectedPence,
+        frequency: job.payFrequency,
+        payDate: '2026-06-26',
+      }),
+    );
+    await render(<HomeScreen />);
+
+    const card = within(screen.getByTestId('net-pay-card'));
+    expect(card.getByLabelText(formatPence(net.netPence))).toBeTruthy();
+    expect(card.getByText('Using 2026/27 tax year')).toBeTruthy();
+    expect(card.getByText(/Estimates only/)).toBeTruthy();
+    expect(screen.queryByTestId('pro-upsell')).toBeNull();
+  });
+
+  it('Free: shows the take-home upsell and no net figure', async () => {
+    useProStore.setState({ status: 'free', source: 'unconfigured' });
+    seed();
+    await render(<HomeScreen />);
+
+    expect(screen.queryByTestId('net-pay-card')).toBeNull();
+    expect(screen.queryByText(/take-home \(rough estimate\)/)).toBeNull();
+    expect(
+      screen.getByText('See your estimated take-home — available with ShiftPay Pro'),
+    ).toBeTruthy();
   });
 
   it('renders only the disclaimer before a job exists', async () => {

@@ -5,8 +5,12 @@ import PayScreen from '../../app/(tabs)/pay';
 import PeriodDetailScreen from '../../app/period/[start]';
 import { bankHolidays } from '../config/bankHolidays';
 import { formatPence, parsePoundsToPence, sumPence } from '../engine/money';
+import { estimateNetPay } from '../engine/netPay';
 import { aggregatePeriod } from '../engine/payPeriods';
 import type { Payslip, PremiumRule } from '../engine/types';
+import { useProStore } from '../features/pro/proStore';
+import { buildNetPayInput } from '../features/tax/netPayInput';
+import { DEFAULT_TAX_PROFILE } from '../features/tax/taxProfile';
 import { useJobsStore } from '../store/jobsStore';
 import { usePayslipsStore } from '../store/payslipsStore';
 import { useRulesStore } from '../store/rulesStore';
@@ -114,6 +118,7 @@ beforeEach(() => {
   mockBack.mockClear();
   mockStart = '2026-06-15';
   mockScheme = 'light';
+  useProStore.setState({ status: 'free', source: 'unconfigured' });
   jest.useFakeTimers({ now: new Date(NOW) });
 });
 
@@ -160,6 +165,13 @@ describe('Pay tab', () => {
     });
   });
 
+  it('the Stats button opens /stats', async () => {
+    seed();
+    await render(<PayScreen />);
+    await fireEvent.press(screen.getByText('Stats'));
+    expect(mockPush).toHaveBeenCalledWith('/stats');
+  });
+
   it('no job: empty state with the disclaimer', async () => {
     await render(<PayScreen />);
     expect(screen.getByText(/No job set up yet/)).toBeTruthy();
@@ -204,6 +216,36 @@ describe('Period detail screen', () => {
     expect(screen.getByTestId('breakdown-total').props.children).toBe(formatPence(total));
     expect(screen.getByLabelText(formatPence(total))).toBeTruthy();
     expect(screen.getByText(/Estimates only/)).toBeTruthy();
+  });
+
+  it('Pro: shows the estimated take-home for the period gross and pay date', async () => {
+    useProStore.setState({ status: 'pro', source: 'revenuecat' });
+    seed();
+    const net = estimateNetPay(
+      buildNetPayInput({
+        profile: DEFAULT_TAX_PROFILE,
+        grossPence: enginePence(periods[1]),
+        frequency: job.payFrequency,
+        payDate: '2026-06-26',
+      }),
+    );
+    await render(<PeriodDetailScreen />);
+
+    const card = within(screen.getByTestId('net-pay-card'));
+    expect(card.getByLabelText(formatPence(net.netPence))).toBeTruthy();
+    expect(card.getByText('Using 2026/27 tax year')).toBeTruthy();
+    expect(card.getByText(/Estimates only/)).toBeTruthy();
+    expect(screen.queryByTestId('pro-upsell')).toBeNull();
+  });
+
+  it('Free: shows the take-home upsell and no net figure', async () => {
+    seed();
+    await render(<PeriodDetailScreen />);
+
+    expect(screen.queryByTestId('net-pay-card')).toBeNull();
+    expect(
+      screen.getByText('See your estimated take-home — available with ShiftPay Pro'),
+    ).toBeTruthy();
   });
 
   it('lists the shifts with status chips and opens a shift', async () => {
@@ -268,6 +310,32 @@ describe('Period detail screen', () => {
       pathname: '/payslip/[start]',
       params: { start: '2026-06-15' },
     });
+  });
+
+  it.each([
+    ['pro', true],
+    ['free', false],
+  ] as const)('%s: line-based causes only with Pro', async (status, lineCauses) => {
+    useProStore.setState({ status, source: status === 'pro' ? 'revenuecat' : 'unconfigured' });
+    seed();
+    const expected = enginePence(periods[1]);
+    usePayslipsStore.setState({
+      payslips: [
+        {
+          ...payslip,
+          grossPaidPence: expected,
+          lines: [{ label: 'Basic pay', amountPence: expected }],
+        },
+      ],
+      loaded: true,
+    });
+    await render(<PeriodDetailScreen />);
+
+    const card = within(screen.getByTestId('payslip-check'));
+    expect(card.queryAllByText(/not found on payslip/).length > 0).toBe(lineCauses);
+    expect(card.queryByText('Match') !== null).toBe(!lineCauses);
+    // Free never drops the stored lines.
+    expect(usePayslipsStore.getState().payslips[0]?.lines).toHaveLength(1);
   });
 
   it('the check card updates when the payslip or shifts change', async () => {

@@ -1,7 +1,9 @@
 /**
  * Pay rules: the job's premiums and overtime rules, each with a plain summary.
  * Tap a rule to edit it; "Add premium" / "Add overtime rule" asks for the kind
- * of rule, then opens the editor for a new one.
+ * of rule, then opens the editor for a new one. Free users can add up to
+ * FREE_LIMITS.rules; past that the add buttons give way to a Pro upsell, but
+ * every existing rule stays listed, editable and used in pay.
  */
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -10,8 +12,11 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button } from '../../src/components/Button';
 import { Card } from '../../src/components/Card';
 import { Disclaimer } from '../../src/components/Disclaimer';
+import { ProUpsell } from '../../src/components/ProUpsell';
 import { Screen } from '../../src/components/Screen';
 import { formatPence } from '../../src/engine/money';
+import { FREE_LIMITS, canAddRule } from '../../src/features/pro/gates';
+import { useEntitlement } from '../../src/features/pro/useEntitlement';
 import type { DayOfWeek, PremiumRule, PremiumRuleType } from '../../src/engine/types';
 import { useJobsStore } from '../../src/store/jobsStore';
 import { useRulesStore } from '../../src/store/rulesStore';
@@ -112,12 +117,14 @@ function RuleGroup({
   empty,
   addLabel,
   types,
+  canAdd,
 }: {
   title: string;
   rules: PremiumRule[];
   empty: string;
   addLabel: string;
   types: [PremiumRuleType, string][];
+  canAdd: boolean;
 }) {
   const router = useRouter();
   const { colors, typography, spacing } = useTheme();
@@ -137,26 +144,27 @@ function RuleGroup({
           onPress={() => router.push({ pathname: '/settings/rule/[id]', params: { id: rule.id } })}
         />
       ))}
-      <View style={{ height: spacing.sm }} />
-      {picking ? (
-        <View style={{ gap: spacing.sm }}>
-          <Text style={[typography.body, { color: colors.ink }]}>What does it depend on?</Text>
-          {types.map(([type, label]) => (
-            <Button
-              key={type}
-              label={label}
-              variant="secondary"
-              onPress={() => {
-                setPicking(false);
-                router.push({ pathname: '/settings/rule/[id]', params: { id: 'new', type } });
-              }}
-            />
-          ))}
-          <Button label="Cancel" variant="quiet" onPress={() => setPicking(false)} />
-        </View>
-      ) : (
-        <Button label={addLabel} variant="secondary" onPress={() => setPicking(true)} />
-      )}
+      {canAdd && <View style={{ height: spacing.sm }} />}
+      {canAdd &&
+        (picking ? (
+          <View style={{ gap: spacing.sm }}>
+            <Text style={[typography.body, { color: colors.ink }]}>What does it depend on?</Text>
+            {types.map(([type, label]) => (
+              <Button
+                key={type}
+                label={label}
+                variant="secondary"
+                onPress={() => {
+                  setPicking(false);
+                  router.push({ pathname: '/settings/rule/[id]', params: { id: 'new', type } });
+                }}
+              />
+            ))}
+            <Button label="Cancel" variant="quiet" onPress={() => setPicking(false)} />
+          </View>
+        ) : (
+          <Button label={addLabel} variant="secondary" onPress={() => setPicking(true)} />
+        ))}
     </Card>
   );
 }
@@ -166,6 +174,7 @@ export default function PayRulesScreen() {
   const { colors, typography, spacing } = useTheme();
   const job = useJobsStore((s) => s.jobs[0]);
   const allRules = useRulesStore((s) => s.rules);
+  const { isPro } = useEntitlement();
   const back = <Button label="Back" variant="secondary" onPress={() => router.back()} />;
 
   if (job === undefined) {
@@ -180,6 +189,7 @@ export default function PayRulesScreen() {
   }
 
   const rules = allRules.filter((r) => r.jobId === job.id);
+  const canAdd = canAddRule(rules.length, isPro);
   return (
     <Screen title="Pay rules" scroll bottomInset footer={back}>
       <RuleGroup
@@ -188,6 +198,7 @@ export default function PayRulesScreen() {
         empty="No premiums yet."
         addLabel="Add premium"
         types={PREMIUM_TYPES}
+        canAdd={canAdd}
       />
       <View style={{ height: spacing.lg }} />
       <RuleGroup
@@ -196,8 +207,18 @@ export default function PayRulesScreen() {
         empty="No overtime rules yet."
         addLabel="Add overtime rule"
         types={OVERTIME_TYPES}
+        canAdd={canAdd}
       />
       <View style={{ height: spacing.lg }} />
+      {!canAdd && (
+        <>
+          <ProUpsell
+            detail={`Free includes ${FREE_LIMITS.rules} pay rules.`}
+            text="More pay rules"
+          />
+          <View style={{ height: spacing.lg }} />
+        </>
+      )}
       <Disclaimer />
     </Screen>
   );

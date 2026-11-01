@@ -1,7 +1,8 @@
 /**
  * Pay period detail (SPEC §7 item 5): one period's expected gross, its
  * per-rule breakdown and its shifts. Reached from a Pay tab row; the route
- * param is the period's start date.
+ * param is the period's start date. Free gets the gross-only payslip check
+ * (SPEC §8): stored payslip lines are ignored there, so no line-based causes.
  */
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo } from 'react';
@@ -12,6 +13,8 @@ import { Button } from '../../src/components/Button';
 import { Card } from '../../src/components/Card';
 import { Chip, type ChipTone } from '../../src/components/Chip';
 import { Disclaimer } from '../../src/components/Disclaimer';
+import { NetPayCard } from '../../src/components/NetPayCard';
+import { ProUpsell } from '../../src/components/ProUpsell';
 import { Screen } from '../../src/components/Screen';
 import { useBankHolidaysStore } from '../../src/store/bankHolidaysStore';
 import { formatPence } from '../../src/engine/money';
@@ -22,10 +25,14 @@ import { instantToLocal } from '../../src/engine/time';
 import type { ShiftStatus } from '../../src/engine/types';
 import { formatDayDate } from '../../src/features/home/homeView';
 import { PayslipCheckCard } from '../../src/features/pay/PayslipCheckCard';
+import { hasFeature } from '../../src/features/pro/gates';
+import { useEntitlement } from '../../src/features/pro/useEntitlement';
 import { formatHours, payDayLine, periodRangeLabel } from '../../src/features/pay/payView';
+import { readTaxProfile } from '../../src/features/tax/taxProfile';
 import { useJobsStore } from '../../src/store/jobsStore';
 import { payslipForPeriod, usePayslipsStore } from '../../src/store/payslipsStore';
 import { useRulesStore } from '../../src/store/rulesStore';
+import { useSettingsStore } from '../../src/store/settingsStore';
 import { useShiftsStore } from '../../src/store/shiftsStore';
 import { tabularNums } from '../../src/theme/tokens';
 import { useTheme } from '../../src/theme/useTheme';
@@ -152,18 +159,23 @@ export default function PeriodDetailScreen() {
     [job, period, payslips],
   );
 
-  // Re-runs whenever shifts, rules or the saved payslip change.
-  const check = useMemo(
-    () =>
-      job === undefined || period === null || payslip === undefined
-        ? null
-        : payslipCheck({ shifts, job, rules: jobRules, bankHolidays, period, payslip }),
-    [job, period, shifts, jobRules, payslip, bankHolidays],
-  );
+  const { isPro } = useEntitlement();
+  const lineCheck = hasFeature('payslipLines', isPro);
+  const showNetPay = hasFeature('netPay', isPro);
+  const settings = useSettingsStore((s) => s.values);
+  const profile = useMemo(() => readTaxProfile(settings), [settings]);
+
+  // Re-runs whenever shifts, rules, the saved payslip or Pro change.
+  const check = useMemo(() => {
+    if (job === undefined || period === null || payslip === undefined) return null;
+    // Free: check gross (and hours) only; the stored lines stay in the DB.
+    const checked = lineCheck ? payslip : { ...payslip, lines: undefined };
+    return payslipCheck({ shifts, job, rules: jobRules, bankHolidays, period, payslip: checked });
+  }, [job, period, shifts, jobRules, payslip, bankHolidays, lineCheck]);
 
   const back = <Button label="Back" variant="secondary" onPress={() => router.back()} />;
 
-  if (period === null || detail === null) {
+  if (job === undefined || period === null || detail === null) {
     return (
       <Screen title="Period not found" bottomInset footer={back}>
         <Text style={[typography.body, { color: colors.ink, marginBottom: spacing.lg }]}>
@@ -182,6 +194,18 @@ export default function PeriodDetailScreen() {
       <Text style={[typography.body, styles.nums, { color: colors.ink, marginTop: spacing.md }]}>
         {payDayLine(detail.payDate, today)}
       </Text>
+      <View style={gap} />
+
+      {showNetPay ? (
+        <NetPayCard
+          grossPence={detail.totalGrossPence}
+          frequency={job.payFrequency}
+          payDate={detail.payDate}
+          profile={profile}
+        />
+      ) : (
+        <ProUpsell text="See your estimated take-home" />
+      )}
       <View style={gap} />
 
       <View testID="breakdown">

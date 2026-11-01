@@ -6,14 +6,21 @@ import { useBankHolidaysStore } from '../../src/store/bankHolidaysStore';
 import { BigNumber } from '../../src/components/BigNumber';
 import { Card } from '../../src/components/Card';
 import { Disclaimer } from '../../src/components/Disclaimer';
+import { NetPayCard } from '../../src/components/NetPayCard';
+import { ProUpsell } from '../../src/components/ProUpsell';
 import { Screen } from '../../src/components/Screen';
 import { formatHolidayHours, holidayView } from '../../src/engine/holidayView';
 import { homeSummary } from '../../src/engine/homeSummary';
+import { payDate } from '../../src/engine/payPeriods';
 import type { Job } from '../../src/engine/types';
 import { useHolidaySummary } from '../../src/features/holiday/useHolidaySummary';
 import { homeView } from '../../src/features/home/homeView';
+import { hasFeature } from '../../src/features/pro/gates';
+import { useEntitlement } from '../../src/features/pro/useEntitlement';
+import { readTaxProfile } from '../../src/features/tax/taxProfile';
 import { useJobsStore } from '../../src/store/jobsStore';
 import { useRulesStore } from '../../src/store/rulesStore';
+import { useSettingsStore } from '../../src/store/settingsStore';
 import { useShiftsStore } from '../../src/store/shiftsStore';
 import { tabularNums } from '../../src/theme/tokens';
 import { useTheme } from '../../src/theme/useTheme';
@@ -78,6 +85,10 @@ export default function HomeScreen() {
   const bankHolidays = useBankHolidaysStore((s) => s.lookup);
   const rules = useRulesStore((s) => s.rules);
   const now = useNow();
+  const settings = useSettingsStore((s) => s.values);
+  const profile = useMemo(() => readTaxProfile(settings), [settings]);
+  const { isPro } = useEntitlement();
+  const showNetPay = hasFeature('netPay', isPro);
 
   const summary = useMemo(
     () => (job === undefined ? null : homeSummary({ shifts, job, rules, bankHolidays, now })),
@@ -102,6 +113,17 @@ export default function HomeScreen() {
       <BigNumber pence={summary.earnedSoFarPence} caption="Earned so far this period" />
       <Text style={[body, { marginTop: spacing.md }]}>{view.projectedLine}</Text>
       <Text style={[muted, { marginTop: spacing.xs }]}>{view.periodLine}</Text>
+      <View style={gap} />
+      {showNetPay ? (
+        <NetPayCard
+          grossPence={summary.projectedPence}
+          frequency={job.payFrequency}
+          payDate={payDate(summary.period, job)}
+          profile={profile}
+        />
+      ) : (
+        <ProUpsell text="See your estimated take-home" />
+      )}
       <View style={{ height: spacing.xl }} />
 
       <Card title="Next shift">

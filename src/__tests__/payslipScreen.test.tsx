@@ -7,12 +7,20 @@ import { createJob, deleteJob } from '../db/jobRepo';
 import { createPayslip, getPayslip } from '../db/payslipRepo';
 import { PAYSLIP_FORM_MESSAGES } from '../engine/payslipForm';
 import type { Payslip } from '../engine/types';
+import { useProStore } from '../features/pro/proStore';
+import { sharePayslipCsv, sharePayslipPdf } from '../services/payslipExportShare';
 import { useJobsStore } from '../store/jobsStore';
 import { usePayslipsStore } from '../store/payslipsStore';
 import { useShiftsStore } from '../store/shiftsStore';
 import { job, resetStores } from '../store/testFixtures';
 
 jest.mock('../db/client', () => ({ db: require('../db/testDb').createTestDb() }));
+jest.mock('../services/payslipExportShare', () => ({
+  sharePayslipCsv: jest.fn(),
+  sharePayslipPdf: jest.fn(),
+}));
+const mockCsv = sharePayslipCsv as jest.MockedFunction<typeof sharePayslipCsv>;
+const mockPdf = sharePayslipPdf as jest.MockedFunction<typeof sharePayslipPdf>;
 const mockPush = jest.fn();
 const mockBack = jest.fn();
 let mockStart = '2026-06-15';
@@ -71,10 +79,17 @@ beforeEach(async () => {
   await deleteJob(db, job.id);
   mockPush.mockClear();
   mockBack.mockClear();
+  mockCsv.mockReset();
+  mockPdf.mockReset();
   mockStart = '2026-06-15';
+  useProStore.setState({ status: 'free', source: 'unconfigured' });
 });
 
 describe('Payslip screen', () => {
+  beforeEach(() => {
+    useProStore.setState({ status: 'pro', source: 'revenuecat' });
+  });
+
   it('enters a new payslip with two lines and stores exact pence', async () => {
     await seed();
     await render(<PayslipScreen />);
@@ -291,5 +306,150 @@ describe('Payslip screen', () => {
   it('no job: "Period not found"', async () => {
     await render(<PayslipScreen />);
     expect(screen.getByRole('header', { name: 'Period not found' })).toBeTruthy();
+  });
+
+  it('hides export until a payslip is saved', async () => {
+    await seed();
+    await render(<PayslipScreen />);
+    expect(screen.queryByTestId('payslip-export')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Export PDF' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Export CSV' })).toBeNull();
+    expect(screen.queryByText(/Export for payroll/)).toBeNull();
+  });
+
+  it('exports the saved check as PDF and CSV', async () => {
+    mockPdf.mockResolvedValue({ status: 'shared', uri: 'file:///x.pdf' });
+    mockCsv.mockResolvedValue({ status: 'shared', uri: 'file:///x.csv' });
+    await seed([existing]);
+    await render(<PayslipScreen />);
+
+    await fireEvent.press(button('Export PDF'));
+    await waitFor(() => expect(mockPdf).toHaveBeenCalledTimes(1));
+    const input = mockPdf.mock.calls[0]?.[0];
+    expect(input).toMatchObject({
+      jobName: job.name,
+      period: { start: '2026-06-15', end: '2026-06-21' },
+      check: { paidPence: 50000, expectedPence: 0 },
+    });
+    expect(input?.detail.payDate).toBe(input?.payDate);
+    expect(input?.generatedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+
+    await fireEvent.press(button('Export CSV'));
+    await waitFor(() => expect(mockCsv).toHaveBeenCalledTimes(1));
+    expect(mockCsv.mock.calls[0]?.[0]).toEqual(input);
+    expect(screen.getByText(/Estimates only/)).toBeTruthy();
+  });
+
+  it('disables both buttons while exporting', async () => {
+    let finish: (r: { status: 'shared'; uri: string }) => void = () => {};
+    mockCsv.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    await seed([existing]);
+    await render(<PayslipScreen />);
+
+    await fireEvent.press(button('Export CSV'));
+    await waitFor(() => expect(button('Export PDF').props.accessibilityState?.disabled).toBe(true));
+    expect(button('Export CSV').props.accessibilityState?.disabled).toBe(true);
+    await fireEvent.press(button('Export CSV'));
+    expect(mockCsv).toHaveBeenCalledTimes(1);
+
+    finish({ status: 'shared', uri: 'file:///x.csv' });
+    await waitFor(() =>
+      expect(button('Export PDF').props.accessibilityState?.disabled).toBe(false),
+    );
+  });
+
+  it('says when sharing is unavailable, and when the export fails', async () => {
+    mockPdf.mockResolvedValue({ status: 'unavailable' });
+    mockCsv.mockResolvedValue({ status: 'failed' });
+    await seed([existing]);
+    await render(<PayslipScreen />);
+
+    await fireEvent.press(button('Export PDF'));
+    expect(await screen.findByText("Sharing isn't available on this device.")).toBeTruthy();
+    await fireEvent.press(button('Export CSV'));
+    expect(await screen.findByText("The export couldn't be created. Try again.")).toBeTruthy();
+    expect(screen.queryByText("Sharing isn't available on this device.")).toBeNull();
+  });
+
+  it('reports a failure if the export throws', async () => {
+    mockCsv.mockRejectedValue(new Error('boom'));
+    await seed([existing]);
+    await render(<PayslipScreen />);
+
+    await fireEvent.press(button('Export CSV'));
+    expect(await screen.findByText("The export couldn't be created. Try again.")).toBeTruthy();
+    expect(button('Export CSV').props.accessibilityState?.disabled).toBe(false);
+  });
+});
+
+describe('Payslip screen (free)', () => {
+  it('shows an upsell instead of lines and saves a gross-only payslip', async () => {
+    await seed();
+    await render(<PayslipScreen />);
+
+    expect(screen.queryByTestId('payslip-lines')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add line' })).toBeNull();
+    expect(screen.queryAllByLabelText('Label')).toHaveLength(0);
+    expect(screen.getByText('Line-by-line check — available with ShiftPay Pro')).toBeTruthy();
+    expect(screen.getByText(/Estimates only/)).toBeTruthy();
+    await fireEvent.press(button('See ShiftPay Pro: Line-by-line check'));
+    expect(mockPush).toHaveBeenCalledWith('/paywall');
+
+    await fireEvent.changeText(field('Gross pay (£)'), '500');
+    await fireEvent.changeText(field('Hours paid (optional)'), '40');
+    await fireEvent.press(button('Save'));
+
+    await waitFor(() => expect(mockBack).toHaveBeenCalledTimes(1));
+    const saved = stored()[0] as Payslip;
+    const expected: Payslip = {
+      id: saved.id,
+      jobId: job.id,
+      periodStart: '2026-06-15',
+      periodEnd: '2026-06-21',
+      grossPaidPence: 50000,
+      hoursPaid: 40,
+      taxPence: 0,
+      niPence: 0,
+      pensionPence: 0,
+    };
+    expect(saved).toEqual(expected);
+    expect(await getPayslip(db, saved.id)).toEqual(expected);
+  });
+
+  it('keeps lines already stored on the payslip when saving edits', async () => {
+    await seed([existing]);
+    await render(<PayslipScreen />);
+
+    expect(screen.queryAllByTestId('payslip-line')).toHaveLength(0);
+    expect(field('Gross pay (£)').props.value).toBe('500.00');
+    await fireEvent.changeText(field('Gross pay (£)'), '510');
+    await fireEvent.press(button('Save'));
+
+    await waitFor(() => expect(mockBack).toHaveBeenCalledTimes(1));
+    const expected: Payslip = { ...existing, grossPaidPence: 51000 };
+    expect(stored()).toEqual([expected]);
+    expect(await getPayslip(db, existing.id)).toEqual(expected);
+  });
+
+  it('shows an export upsell instead of the export buttons for a saved payslip', async () => {
+    await seed([existing]);
+    await render(<PayslipScreen />);
+
+    expect(screen.queryByTestId('payslip-export')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Export PDF' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Export CSV' })).toBeNull();
+    expect(screen.getByText('Export for payroll — available with ShiftPay Pro')).toBeTruthy();
+    await fireEvent.press(button('See ShiftPay Pro: Export for payroll'));
+    expect(mockPush).toHaveBeenCalledWith('/paywall');
+    expect(mockCsv).not.toHaveBeenCalled();
+    expect(mockPdf).not.toHaveBeenCalled();
+  });
+
+  it('treats loading as free', async () => {
+    useProStore.setState({ status: 'loading', source: 'pending' });
+    await seed();
+    await render(<PayslipScreen />);
+    expect(screen.queryByTestId('payslip-lines')).toBeNull();
+    expect(screen.getByTestId('pro-upsell')).toBeTruthy();
   });
 });

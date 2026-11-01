@@ -31,6 +31,8 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
+.env.local
 .env*.local
 
 # typescript
@@ -46,5 +48,7 @@ example
 .work/
 *.keystore
 .env*
+# the template has no secrets and is committed
+!.env.example
 
 coverage/

@@ -6,9 +6,16 @@ import RuleEditorScreen from '../../app/settings/rule/[id]';
 import PayRulesScreen, { ruleSummary } from '../../app/settings/rules';
 import { bankHolidays } from '../config/bankHolidays';
 import { db } from '../db/client';
-import { createJob, createPremiumRule, deleteJob, getPremiumRule } from '../db/jobRepo';
+import {
+  createJob,
+  createPremiumRule,
+  deleteJob,
+  getPremiumRule,
+  listPremiumRules,
+} from '../db/jobRepo';
 import { homeSummary } from '../engine/homeSummary';
 import { formatPence } from '../engine/money';
+import { useProStore } from '../features/pro/proStore';
 import { RULE_FORM_MESSAGES } from '../engine/ruleForm';
 import type { PremiumRule, PremiumRuleType } from '../engine/types';
 import { useJobsStore } from '../store/jobsStore';
@@ -95,6 +102,8 @@ beforeEach(async () => {
   mockBack.mockClear();
   mockParams = {};
   mockScheme = 'light';
+  // Most tests here go past the free rule limit; the free plan has its own block.
+  useProStore.setState({ status: 'pro', source: 'revenuecat' });
 });
 
 describe('ruleSummary', () => {
@@ -131,7 +140,10 @@ describe('Pay rules list', () => {
     expect(button('Overtime, ×1.5 after 39 h a week')).toBeTruthy();
 
     await fireEvent.press(nightRow);
-    expect(mockPush).toHaveBeenCalledWith({ pathname: '/settings/rule/[id]', params: { id: 'r-night' } });
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/settings/rule/[id]',
+      params: { id: 'r-night' },
+    });
 
     await fireEvent.press(button('Add premium'));
     expect(screen.getByText('What does it depend on?')).toBeTruthy();
@@ -232,7 +244,9 @@ describe('Rule editor', () => {
         await fireEvent.press(button('Sun'));
       }
       await fireEvent.press(saveButton());
-      await waitFor(() => expect(useRulesStore.getState().rules.some((r) => r.type === type)).toBe(true));
+      await waitFor(() =>
+        expect(useRulesStore.getState().rules.some((r) => r.type === type)).toBe(true),
+      );
       await screen.unmount();
     }
     const rules = useRulesStore.getState().rules;
@@ -364,7 +378,10 @@ describe('Rule edits recalculate Home', () => {
       // 22:00–06:00 BST nights, all inside the band.
       const nightShift = (date: string, next: string) =>
         shift(date, { start: `${date}T21:00:00.000Z`, end: `${next}T05:00:00.000Z` });
-      const shifts = [nightShift('2026-06-15', '2026-06-16'), nightShift('2026-06-18', '2026-06-19')];
+      const shifts = [
+        nightShift('2026-06-15', '2026-06-16'),
+        nightShift('2026-06-18', '2026-06-19'),
+      ];
       useShiftsStore.setState({ shifts, loaded: true });
 
       const before = homeSummary({ shifts, job, rules: [night], bankHolidays, now: NOW });
@@ -391,5 +408,112 @@ describe('Rule edits recalculate Home', () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+});
+
+describe('Free rule limit', () => {
+  const free = () => useProStore.setState({ status: 'free', source: 'unconfigured' });
+  const upsellText = 'More pay rules — available with ShiftPay Pro';
+  const seePro = () => button('See ShiftPay Pro: More pay rules');
+
+  it('free with 2 rules: shows the upsell instead of the add buttons', async () => {
+    free();
+    await seed([night, weekend]);
+    await render(<PayRulesScreen />);
+
+    expect(screen.getByText('Free includes 2 pay rules.')).toBeTruthy();
+    expect(screen.getByText(upsellText)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Add premium' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add overtime rule' })).toBeNull();
+    await fireEvent.press(seePro());
+    expect(mockPush).toHaveBeenCalledWith('/paywall');
+  });
+
+  it('free with 1 rule, and Pro with 2: the add buttons are shown, no upsell', async () => {
+    free();
+    await seed([night]);
+    await render(<PayRulesScreen />);
+    expect(button('Add premium')).toBeTruthy();
+    expect(screen.queryByText(upsellText)).toBeNull();
+    await screen.unmount();
+
+    useProStore.setState({ status: 'pro', source: 'revenuecat' });
+    await createPremiumRule(db, weekend);
+    await useRulesStore.getState().load(db);
+    await render(<PayRulesScreen />);
+    expect(button('Add premium')).toBeTruthy();
+    expect(button('Add overtime rule')).toBeTruthy();
+    expect(screen.queryByText(upsellText)).toBeNull();
+  });
+
+  it('treats a still-loading entitlement as free', async () => {
+    useProStore.setState({ status: 'loading', source: 'pending' });
+    await seed([night, weekend]);
+    await render(<PayRulesScreen />);
+    expect(screen.getByText(upsellText)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Add premium' })).toBeNull();
+  });
+
+  it('free with 3 rules: keeps all 3 listed, editable and deletable', async () => {
+    free();
+    await seed();
+    await render(<PayRulesScreen />);
+    expect(button('Night, ×1.25 · 22:00–06:00')).toBeTruthy();
+    expect(button('Weekend, +£1.50/h · Sat, Sun')).toBeTruthy();
+    await fireEvent.press(button('Overtime, ×1.5 after 39 h a week'));
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/settings/rule/[id]',
+      params: { id: 'r-ot' },
+    });
+    await screen.unmount();
+
+    mockParams = { id: 'r-ot' };
+    await render(<RuleEditorScreen />);
+    expect(screen.queryByText(upsellText)).toBeNull();
+    await fireEvent.changeText(screen.getByLabelText(MULTIPLIER_LABEL), '2');
+    await fireEvent.press(saveButton());
+    await waitFor(() => expect(mockBack).toHaveBeenCalledTimes(1));
+    expect(storedRule('r-ot')).toMatchObject({ multiplier: 2 });
+    await screen.unmount();
+
+    mockParams = { id: 'r-weekend' };
+    await render(<RuleEditorScreen />);
+    await fireEvent.press(button('Delete rule'));
+    await fireEvent.press(button('Delete'));
+    await waitFor(() => expect(mockBack).toHaveBeenCalledTimes(2));
+    expect(
+      useRulesStore
+        .getState()
+        .rules.map((r) => r.id)
+        .sort(),
+    ).toEqual(['r-night', 'r-ot']);
+  });
+
+  it("refuses a deep-linked 'new' rule over the limit and saves nothing", async () => {
+    free();
+    await seed([night, weekend]);
+    mockParams = { id: 'new', type: 'day_of_week' };
+    await render(<RuleEditorScreen />);
+
+    expect(screen.getByText(upsellText)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+    expect(screen.queryByLabelText('Rule name')).toBeNull();
+    await fireEvent.press(button('Back'));
+    expect(mockBack).toHaveBeenCalledTimes(1);
+    expect(useRulesStore.getState().rules).toHaveLength(2);
+    expect(await listPremiumRules(db, job.id)).toHaveLength(2);
+  });
+
+  it('lets a free user add their second rule without flipping to the upsell', async () => {
+    free();
+    await seed([night]);
+    mockParams = { id: 'new', type: 'bank_holiday' };
+    await render(<RuleEditorScreen />);
+    await fireEvent.press(saveButton());
+
+    await waitFor(() => expect(mockBack).toHaveBeenCalledTimes(1));
+    expect(useRulesStore.getState().rules).toHaveLength(2);
+    expect(screen.queryByText(upsellText)).toBeNull();
+    expect(screen.getByLabelText('Rule name')).toBeTruthy();
   });
 });

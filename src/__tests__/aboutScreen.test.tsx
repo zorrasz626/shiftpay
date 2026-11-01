@@ -5,6 +5,8 @@ import SettingsScreen from '../../app/(tabs)/settings';
 import AboutScreen from '../../app/settings/about';
 import { DISCLAIMER } from '../components/Disclaimer';
 import { PRIVACY_POLICY_URL } from '../config/links';
+import { PRO_OVERRIDE_KEY, useProStore } from '../features/pro/proStore';
+import { useSettingsStore } from '../store/settingsStore';
 import { resetStores } from '../store/testFixtures';
 import { darkColors, lightColors, typography } from '../theme/tokens';
 
@@ -88,6 +90,26 @@ describe('About screen', () => {
     await render(<AboutScreen />);
     expect(styleOf(screen.getByText(DISCLAIMER)).color).toBe(darkColors.ink);
     expect(styleOf(screen.getByText('Version 1.0.0')).color).toBe(darkColors.inkMuted);
+  });
+});
+
+describe('About dev Pro override row', () => {
+  it('cycles the override Off -> Pro -> Free -> Off (shown under __DEV__ in Jest)', async () => {
+    await useProStore.getState().init({} as never, { apiKey: null, isDev: true });
+    await render(<AboutScreen />);
+    const row = screen.getByRole('button', { name: 'Pro (dev override)' });
+    expect(screen.getByText('Off (RevenueCat) · now free')).toBeTruthy();
+
+    await fireEvent.press(row);
+    expect(useSettingsStore.getState().values[PRO_OVERRIDE_KEY]).toBe('pro');
+    expect(await screen.findByText('Pro · now pro')).toBeTruthy();
+
+    await fireEvent.press(row);
+    expect(await screen.findByText('Free · now free')).toBeTruthy();
+
+    await fireEvent.press(row);
+    expect(useSettingsStore.getState().values[PRO_OVERRIDE_KEY]).toBeUndefined();
+    expect(await screen.findByText('Off (RevenueCat) · now free')).toBeTruthy();
   });
 });
 

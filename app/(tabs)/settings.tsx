@@ -1,9 +1,12 @@
 /**
- * Settings tab: the job (name and base rate, opens Job settings), the pay
- * rules (opens the rule list), the rota (opens the rota editor), holiday
- * (opens Holiday settings), shift reminders (opens Reminder settings), backup
- * export (share sheet) and import (file picker), and the disclaimer. Free tier
- * = one job, one rota pattern.
+ * Settings tab: ShiftPay Pro (opens the paywall), the job (name and base
+ * rate, opens Job settings), the pay rules (opens the rule list), the rota
+ * (opens the rota editor), holiday (opens Holiday settings), tax and
+ * deductions (opens Tax settings, Pro-gated there), shift reminders
+ * (opens Reminder settings), backup export (share sheet, Pro; free sees a
+ * Pro upsell in its place) and import (file picker, everyone, so users can
+ * always restore their own data), and the disclaimer. Free tier = one job,
+ * one rota pattern.
  */
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -12,6 +15,7 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button } from '../../src/components/Button';
 import { Card } from '../../src/components/Card';
 import { Disclaimer } from '../../src/components/Disclaimer';
+import { ProUpsell } from '../../src/components/ProUpsell';
 import { Screen } from '../../src/components/Screen';
 import type { Backup } from '../../src/db/backup';
 import type { BackupRejectReason } from '../../src/db/backupImport';
@@ -19,6 +23,9 @@ import { db } from '../../src/db/client';
 import { formatPence } from '../../src/engine/money';
 import { formatLeadMinutes, reminderSettings } from '../../src/engine/reminders';
 import type { Job, RotaPattern } from '../../src/engine/types';
+import { hasFeature } from '../../src/features/pro/gates';
+import { useEntitlement } from '../../src/features/pro/useEntitlement';
+import { readTaxProfile, taxProfileSummary } from '../../src/features/tax/taxProfile';
 import { formatBackupDate, restoreBackup } from '../../src/services/backupRestore';
 import { exportBackupToShare } from '../../src/services/backupShare';
 import { useJobsStore } from '../../src/store/jobsStore';
@@ -97,8 +104,10 @@ export const RESTORE_DONE_MESSAGE = 'Backup restored.';
 export const RESTORE_FAILED_MESSAGE = "The backup couldn't be restored. Try again.";
 export const RESTORE_REJECT_MESSAGES: Record<BackupRejectReason, string> = {
   'not-shiftpay': "This file isn't a ShiftPay backup.",
-  'newer-format': 'This backup was made by a newer version of ShiftPay. Update the app and try again.',
-  'newer-schema': 'This backup was made by a newer version of ShiftPay. Update the app and try again.',
+  'newer-format':
+    'This backup was made by a newer version of ShiftPay. Update the app and try again.',
+  'newer-schema':
+    'This backup was made by a newer version of ShiftPay. Update the app and try again.',
   invalid: 'This backup file is damaged or incomplete.',
   'older-schema': "This backup uses an older format that isn't supported yet.",
 };
@@ -129,11 +138,14 @@ function confirmReplace(backup: Backup): Promise<boolean> {
 type BackupMessage = { text: string; tone: 'positive' | 'alert' };
 
 /**
- * Backup card: "Export backup" writes the JSON file and opens the share sheet;
- * "Import backup" picks a file, confirms and replaces all data with it.
+ * Backup card: "Export backup" (Pro) writes the JSON file and opens the share
+ * sheet; free sees a Pro upsell instead. "Import backup" (everyone) picks a
+ * file, confirms and replaces all data with it.
  */
 function BackupCard() {
   const { colors, typography, spacing } = useTheme();
+  const { isPro } = useEntitlement();
+  const canExport = hasFeature('backupExport', isPro);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<BackupMessage | null>(null);
 
@@ -175,12 +187,16 @@ function BackupCard() {
       <Text style={[typography.body, { color: colors.inkMuted, marginBottom: spacing.sm }]}>
         Save a copy of all your data
       </Text>
-      <Button
-        label="Export backup"
-        variant="secondary"
-        disabled={busy}
-        onPress={() => void onExport()}
-      />
+      {canExport ? (
+        <Button
+          label="Export backup"
+          variant="secondary"
+          disabled={busy}
+          onPress={() => void onExport()}
+        />
+      ) : (
+        <ProUpsell text="Backup to file" />
+      )}
       <View style={{ height: spacing.sm }} />
       <Button
         label="Import backup"
@@ -210,10 +226,22 @@ export default function SettingsScreen() {
     job === undefined ? undefined : s.patterns.find((p) => p.jobId === job.id),
   );
   const settingsValues = useSettingsStore((s) => s.values);
+  const taxProfile = readTaxProfile(settingsValues);
+  const { isPro } = useEntitlement();
   const gap = { height: spacing.lg };
 
   return (
     <Screen title="Settings" scroll>
+      <Card title="ShiftPay Pro">
+        <SettingsRow
+          label={isPro ? 'Pro active' : 'Upgrade to Pro'}
+          detail={
+            isPro ? 'Thanks for supporting ShiftPay' : 'Net pay, stats, unlimited rules and more'
+          }
+          onPress={() => router.push({ pathname: '/paywall' })}
+        />
+      </Card>
+      <View style={gap} />
       <Card title="Job">
         {job === undefined ? (
           <Text style={[typography.body, { color: colors.inkMuted }]}>No job set up yet.</Text>
@@ -255,6 +283,15 @@ export default function SettingsScreen() {
           <View style={gap} />
         </>
       )}
+
+      <Card title="Tax & deductions">
+        <SettingsRow
+          label={`Tax code ${taxProfile.taxCode}`}
+          detail={taxProfileSummary(taxProfile)}
+          onPress={() => router.push({ pathname: '/settings/tax' })}
+        />
+      </Card>
+      <View style={gap} />
 
       <Card title="Reminders">
         <SettingsRow

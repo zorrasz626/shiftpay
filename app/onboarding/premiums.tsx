@@ -7,8 +7,10 @@ import { Chip } from '../../src/components/Chip';
 import { Disclaimer } from '../../src/components/Disclaimer';
 import { Screen } from '../../src/components/Screen';
 import { db } from '../../src/db/client';
-import { PREMIUM_PRESETS } from '../../src/engine/presets';
+import { PREMIUM_PRESETS, type PremiumPresetId } from '../../src/engine/presets';
 import { instantToLocal } from '../../src/engine/time';
+import { canAddRule } from '../../src/features/pro/gates';
+import { useEntitlement } from '../../src/features/pro/useEntitlement';
 import type { BankHolidayRegion, OvertimePremiumMode } from '../../src/engine/types';
 import { useOnboardingStore } from '../../src/store/onboardingStore';
 import { useTheme } from '../../src/theme/useTheme';
@@ -37,6 +39,19 @@ export default function OnboardingPremiumsScreen() {
   const draft = useOnboardingStore();
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const { isPro } = useEntitlement();
+  const [limitHint, setLimitHint] = useState(false);
+
+  /** Each preset is one rule: a free user can pick up to the free rule limit. */
+  function onTogglePreset(id: PremiumPresetId) {
+    const selected = draft.premiums.includes(id);
+    if (!selected && !canAddRule(draft.premiums.length, isPro)) {
+      setLimitHint(true);
+      return;
+    }
+    setLimitHint(false);
+    draft.togglePremium(id);
+  }
 
   async function onFinish() {
     setSaving(true);
@@ -81,10 +96,18 @@ export default function OnboardingPremiumsScreen() {
             label={label}
             tone="neutral"
             selected={draft.premiums.includes(id)}
-            onPress={() => draft.togglePremium(id)}
+            onPress={() => onTogglePreset(id)}
           />
         ))}
       </View>
+      {limitHint && (
+        <Text
+          accessibilityLiveRegion="polite"
+          style={[typography.caption, { color: colors.ink, marginBottom: spacing.sm }]}
+        >
+          More rules with Pro after setup
+        </Text>
+      )}
       <Text style={[typography.caption, { color: colors.inkMuted, marginBottom: spacing.xl }]}>
         Optional — you can change these later in Settings
       </Text>

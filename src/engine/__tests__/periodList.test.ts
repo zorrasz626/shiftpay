@@ -92,7 +92,7 @@ function sh(
   date: LocalDate,
   hour: number,
   hours: number,
-  extra: { status?: ShiftStatus; jobId?: string } = {},
+  extra: { status?: ShiftStatus; jobId?: string; unpaidBreakMinutes?: number } = {},
 ): Shift {
   const start = `${date}T${String(hour).padStart(2, '0')}:00:00.000Z`;
   return {
@@ -101,7 +101,7 @@ function sh(
     date,
     start,
     end: addMinutes(start, hours * 60),
-    unpaidBreakMinutes: 0,
+    unpaidBreakMinutes: extra.unpaidBreakMinutes ?? 0,
     source: 'manual',
     status: extra.status ?? 'planned',
     overtimeFlag: false,
@@ -365,17 +365,17 @@ describe('periodDetail', () => {
     const input = [
       sh('x', '2027-01-13', 9, 8, { status: 'cancelled' }),
       sh('s', '2027-01-12', 9, 8, { status: 'sick' }),
-      sh('late', '2027-01-11', 14, 4),
+      sh('late', '2027-01-11', 14, 4, { unpaidBreakMinutes: 30 }),
       sh('early', '2027-01-11', 6, 4),
       sh('o', '2027-01-11', 9, 8, { jobId: 'j2' }),
       sh('before', '2027-01-10', 9, 8),
     ];
     const d = detail(input, job, [sunday], period);
-    expect(d.shifts.map((s) => [s.id, s.status, s.totalGrossPence])).toEqual([
-      ['early', 'planned', 4800],
-      ['late', 'planned', 4800],
-      ['s', 'sick', 9600],
-      ['x', 'cancelled', 0],
+    expect(d.shifts.map((s) => [s.id, s.status, s.paidHours, s.totalGrossPence])).toEqual([
+      ['early', 'planned', 4, 4800],
+      ['late', 'planned', 3.5, 4200],
+      ['s', 'sick', 8, 9600],
+      ['x', 'cancelled', 0, 0],
     ]);
     expect(d.shifts[0]).toEqual({
       id: 'early',
@@ -383,9 +383,10 @@ describe('periodDetail', () => {
       start: '2027-01-11T06:00:00.000Z',
       end: '2027-01-11T10:00:00.000Z',
       status: 'planned',
+      paidHours: 4,
       totalGrossPence: 4800,
     });
-    expect(lineRows(d)).toEqual([['base', 'Base', 'base', 16, 19200]]);
+    expect(lineRows(d)).toEqual([['base', 'Base', 'base', 15.5, 18600]]);
   });
 
   it('an empty period has no lines and no shifts', () => {

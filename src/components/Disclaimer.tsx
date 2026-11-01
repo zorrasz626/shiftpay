@@ -1,10 +1,10 @@
 import { StyleSheet, Text } from 'react-native';
 
+import { DISCLAIMER } from '../config/disclaimer';
 import { tabularNums } from '../theme/tokens';
 import { useTheme } from '../theme/useTheme';
 
-export const DISCLAIMER =
-  'Estimates only — not financial or tax advice. Always check with your employer/payroll.';
+export { DISCLAIMER };
 
 /** The standard estimates-only disclaimer: caption size, inkMuted, left-aligned. */
 export function Disclaimer() {

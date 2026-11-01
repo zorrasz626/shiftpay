@@ -10,6 +10,8 @@ import migrations from '../drizzle/migrations';
 import { db } from '../src/db/client';
 import { tzSelfCheck } from '../src/dev/tzSelfCheck';
 import { instantToLocal } from '../src/engine/time';
+import { useProStore } from '../src/features/pro/proStore';
+import { revenueCatClient } from '../src/features/pro/purchases';
 import { refreshBankHolidays } from '../src/services/bankHolidayRefresh';
 import { expoNotifier } from '../src/services/notifier';
 import { startReminderSync } from '../src/services/reminderSync';
@@ -67,6 +69,14 @@ export default function RootLayout() {
   useEffect(() => {
     if (!booted) return;
     return startReminderSync(expoNotifier);
+  }, [booted]);
+
+  // After boot (settings loaded, so the dev override applies): read the Pro
+  // entitlement in the background. Never awaited, never throws: without an
+  // API key or on any error the app runs as Free.
+  useEffect(() => {
+    if (!booted) return;
+    void useProStore.getState().init(revenueCatClient);
   }, [booted]);
 
   if (error) {

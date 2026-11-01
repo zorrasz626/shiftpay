@@ -10,6 +10,8 @@ export type ButtonProps = {
   readonly onPress: () => void;
   readonly variant?: ButtonVariant;
   readonly disabled?: boolean;
+  /** Spoken instead of `label` when the label alone is unclear out of context. */
+  readonly accessibilityLabel?: string;
 };
 
 type VariantColors = {
@@ -32,13 +34,20 @@ function variantColors(colors: Colors, variant: ButtonVariant, disabled: boolean
 }
 
 /** Button with primary (signal fill), secondary (line border) and quiet (text only) variants. */
-export function Button({ label, onPress, variant = 'primary', disabled = false }: ButtonProps) {
+export function Button({
+  label,
+  onPress,
+  variant = 'primary',
+  disabled = false,
+  accessibilityLabel,
+}: ButtonProps) {
   const { colors, typography, spacing, radius } = useTheme();
   const v = variantColors(colors, variant, disabled);
 
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
