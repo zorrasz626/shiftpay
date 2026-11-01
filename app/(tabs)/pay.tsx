@@ -10,7 +10,7 @@ import { Card } from '../../src/components/Card';
 import { Chip } from '../../src/components/Chip';
 import { Disclaimer } from '../../src/components/Disclaimer';
 import { Screen } from '../../src/components/Screen';
-import { bankHolidays } from '../../src/config/bankHolidays';
+import { useBankHolidaysStore } from '../../src/store/bankHolidaysStore';
 import { formatPence } from '../../src/engine/money';
 import { payPeriodList, type PayPeriodListItem } from '../../src/engine/periodList';
 import { instantToLocal } from '../../src/engine/time';
@@ -76,6 +76,7 @@ export default function PayScreen() {
   const { colors, typography, spacing } = useTheme();
   const job = useJobsStore((s) => s.jobs[0]);
   const shifts = useShiftsStore((s) => s.shifts);
+  const bankHolidays = useBankHolidaysStore((s) => s.lookup);
   const range = useShiftsStore((s) => s.range);
   const rules = useRulesStore((s) => s.rules);
   const today = instantToLocal(new Date().toISOString()).date;
@@ -92,7 +93,7 @@ export default function PayScreen() {
             range,
             today,
           }),
-    [job, shifts, rules, range, today],
+    [job, shifts, rules, range, today, bankHolidays],
   );
 
   const body = [typography.body, { color: colors.inkMuted, marginBottom: spacing.lg }];

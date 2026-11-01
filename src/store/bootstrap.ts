@@ -7,6 +7,7 @@
 import type { LocalDate } from '../engine/types';
 import type { AppDb } from '../db/jobRepo';
 import { materialiseShifts, materialiseWindow } from '../services/materialise';
+import { useBankHolidaysStore } from './bankHolidaysStore';
 import { useJobsStore } from './jobsStore';
 import { usePayslipsStore } from './payslipsStore';
 import { useRotaStore } from './rotaStore';
@@ -32,6 +33,7 @@ export async function bootstrap(db: AppDb, today: LocalDate): Promise<BootstrapR
   await usePayslipsStore.getState().load(db);
   await useRotaStore.getState().load(db);
   await useSettingsStore.getState().load(db);
+  await useBankHolidaysStore.getState().load(db);
   await useShiftsStore.getState().load(db, materialiseWindow(today));
   return result;
 }

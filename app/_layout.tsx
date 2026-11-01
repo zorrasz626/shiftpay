@@ -10,6 +10,7 @@ import migrations from '../drizzle/migrations';
 import { db } from '../src/db/client';
 import { tzSelfCheck } from '../src/dev/tzSelfCheck';
 import { instantToLocal } from '../src/engine/time';
+import { refreshBankHolidays } from '../src/services/bankHolidayRefresh';
 import { expoNotifier } from '../src/services/notifier';
 import { startReminderSync } from '../src/services/reminderSync';
 import { bootstrap } from '../src/store/bootstrap';
@@ -48,6 +49,9 @@ export default function RootLayout() {
           console.log('[tzSelfCheck]', JSON.stringify(tzSelfCheck()));
         }
         if (!cancelled) setBooted(true);
+        // Background, at most weekly: never awaited, never throws, so start-up
+        // is not blocked and an offline start keeps the cached/bundled data.
+        void refreshBankHolidays(db, new Date().toISOString());
       },
       (e: unknown) => {
         if (!cancelled) setBootError(e instanceof Error ? e : new Error(String(e)));

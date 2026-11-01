@@ -1,7 +1,7 @@
 import { type ReactNode, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { bankHolidays } from '../../src/config/bankHolidays';
+import { useBankHolidaysStore } from '../../src/store/bankHolidaysStore';
 import { Button } from '../../src/components/Button';
 import { Disclaimer } from '../../src/components/Disclaimer';
 import { Screen } from '../../src/components/Screen';
@@ -185,6 +185,7 @@ export function CalendarView({ title, intro, footer }: CalendarViewProps) {
   const { colors, typography, spacing } = useTheme();
   const job = useJobsStore((s) => s.jobs[0]);
   const shifts = useShiftsStore((s) => s.shifts);
+  const bankHolidays = useBankHolidaysStore((s) => s.lookup);
   const range = useShiftsStore((s) => s.range);
   const today = instantToLocal(new Date().toISOString()).date;
   const current = parseYearMonth(today);
@@ -203,7 +204,7 @@ export function CalendarView({ title, intro, footer }: CalendarViewProps) {
             region: job.bankHolidayRegion,
             today,
           }),
-    [job, shifts, shown, today],
+    [job, shifts, shown, today, bankHolidays],
   );
 
   if (job === undefined || grid === null) {

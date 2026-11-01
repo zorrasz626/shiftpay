@@ -1,6 +1,7 @@
 /** Shared fixtures and store reset for the store tests. Never import this from app code. */
 import type { StoredJob } from '../db/jobRepo';
 import type { StoredShift } from '../db/shiftRepo';
+import { useBankHolidaysStore } from './bankHolidaysStore';
 import { useJobsStore } from './jobsStore';
 import { usePayslipsStore } from './payslipsStore';
 import { useRotaStore } from './rotaStore';
@@ -49,4 +50,5 @@ export function resetStores(): void {
   useRulesStore.setState(useRulesStore.getInitialState(), true);
   useRotaStore.setState(useRotaStore.getInitialState(), true);
   usePayslipsStore.setState(usePayslipsStore.getInitialState(), true);
+  useBankHolidaysStore.setState(useBankHolidaysStore.getInitialState(), true);
 }

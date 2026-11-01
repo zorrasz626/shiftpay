@@ -13,7 +13,7 @@ import { Card } from '../../src/components/Card';
 import { Chip, type ChipTone } from '../../src/components/Chip';
 import { Disclaimer } from '../../src/components/Disclaimer';
 import { Screen } from '../../src/components/Screen';
-import { bankHolidays } from '../../src/config/bankHolidays';
+import { useBankHolidaysStore } from '../../src/store/bankHolidaysStore';
 import { formatPence } from '../../src/engine/money';
 import { periodContaining } from '../../src/engine/payPeriods';
 import { payslipCheck } from '../../src/engine/payslipCheck';
@@ -117,6 +117,7 @@ export default function PeriodDetailScreen() {
   const { start } = useLocalSearchParams<{ start: string }>();
   const job = useJobsStore((s) => s.jobs[0]);
   const shifts = useShiftsStore((s) => s.shifts);
+  const bankHolidays = useBankHolidaysStore((s) => s.lookup);
   const range = useShiftsStore((s) => s.range);
   const rules = useRulesStore((s) => s.rules);
   const payslips = usePayslipsStore((s) => s.payslips);
@@ -140,7 +141,7 @@ export default function PeriodDetailScreen() {
       job === undefined || period === null
         ? null
         : periodDetail({ shifts, job, rules: jobRules, bankHolidays, period }),
-    [job, period, shifts, jobRules],
+    [job, period, shifts, jobRules, bankHolidays],
   );
 
   const payslip = useMemo(
@@ -157,7 +158,7 @@ export default function PeriodDetailScreen() {
       job === undefined || period === null || payslip === undefined
         ? null
         : payslipCheck({ shifts, job, rules: jobRules, bankHolidays, period, payslip }),
-    [job, period, shifts, jobRules, payslip],
+    [job, period, shifts, jobRules, payslip, bankHolidays],
   );
 
   const back = <Button label="Back" variant="secondary" onPress={() => router.back()} />;

@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { bankHolidays } from '../../src/config/bankHolidays';
+import { useBankHolidaysStore } from '../../src/store/bankHolidaysStore';
 import { BigNumber } from '../../src/components/BigNumber';
 import { Card } from '../../src/components/Card';
 import { Disclaimer } from '../../src/components/Disclaimer';
@@ -75,12 +75,13 @@ export default function HomeScreen() {
   const { colors, typography, spacing } = useTheme();
   const job = useJobsStore((s) => s.jobs[0]);
   const shifts = useShiftsStore((s) => s.shifts);
+  const bankHolidays = useBankHolidaysStore((s) => s.lookup);
   const rules = useRulesStore((s) => s.rules);
   const now = useNow();
 
   const summary = useMemo(
     () => (job === undefined ? null : homeSummary({ shifts, job, rules, bankHolidays, now })),
-    [job, shifts, rules, now],
+    [job, shifts, rules, now, bankHolidays],
   );
 
   if (job === undefined || summary === null) {

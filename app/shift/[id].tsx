@@ -12,7 +12,7 @@ import { Button } from '../../src/components/Button';
 import { Card } from '../../src/components/Card';
 import { Disclaimer } from '../../src/components/Disclaimer';
 import { Screen } from '../../src/components/Screen';
-import { bankHolidays } from '../../src/config/bankHolidays';
+import { useBankHolidaysStore } from '../../src/store/bankHolidaysStore';
 import { formatPence } from '../../src/engine/money';
 import { shiftDetail } from '../../src/engine/shiftDetail';
 import { instantToLocal } from '../../src/engine/time';
@@ -71,6 +71,7 @@ export default function ShiftDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const shifts = useShiftsStore((s) => s.shifts);
+  const bankHolidays = useBankHolidaysStore((s) => s.lookup);
   const jobs = useJobsStore((s) => s.jobs);
   const rules = useRulesStore((s) => s.rules);
 
@@ -81,7 +82,7 @@ export default function ShiftDetailScreen() {
       shift === undefined || job === undefined
         ? null
         : shiftDetail({ shift, shifts, job, rules, bankHolidays }),
-    [shift, shifts, job, rules],
+    [shift, shifts, job, rules, bankHolidays],
   );
 
   const back = <Button label="Back" variant="secondary" onPress={() => router.back()} />;
