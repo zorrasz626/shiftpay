@@ -1,10 +1,11 @@
 import { Barlow_400Regular, Barlow_500Medium, useFonts } from '@expo-google-fonts/barlow';
 import { BarlowCondensed_600SemiBold } from '@expo-google-fonts/barlow-condensed';
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
+import { NavigationBar } from 'expo-navigation-bar';
 import { type ErrorBoundaryProps, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { Text } from 'react-native';
+import { Text, useColorScheme } from 'react-native';
 
 import migrations from '../drizzle/migrations';
 import { Button } from '../src/components/Button';
@@ -81,6 +82,10 @@ function Boot({ onRetry }: { onRetry: () => void }) {
   const fontsReady = fontsLoaded || fontError != null;
   const ready = success && booted && fontsReady;
   const [timedOut, setTimedOut] = useState(false);
+  // Android draws the gesture pill / nav buttons from a flag set once at
+  // start-up, so a live light/dark switch would leave them stale (dark pill
+  // on a dark app). Re-send the style on every scheme change.
+  const navBarStyle = useColorScheme() === 'dark' ? 'light' : 'dark';
 
   // Watchdog: started on mount (each Try again remounts Boot), cleared once
   // ready. A late success after the timeout still renders the app below.
@@ -151,6 +156,7 @@ function Boot({ onRetry }: { onRetry: () => void }) {
   return (
     <>
       <StatusBar style="auto" />
+      <NavigationBar style={navBarStyle} />
       <Stack screenOptions={{ headerShown: false }} />
     </>
   );

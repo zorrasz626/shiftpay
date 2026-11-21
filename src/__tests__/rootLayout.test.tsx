@@ -30,6 +30,10 @@ jest.mock('expo-router', () => {
   return { Stack: () => <Text>App stack</Text> };
 });
 jest.mock('expo-status-bar', () => ({ StatusBar: () => null }));
+const mockNavigationBar = jest.fn((_props: { style?: string }) => null);
+jest.mock('expo-navigation-bar', () => ({
+  NavigationBar: (props: { style?: string }) => mockNavigationBar(props),
+}));
 jest.mock('../dev/tzSelfCheck', () => ({ tzSelfCheck: () => ({}) }));
 jest.mock('../features/pro/proStore', () => ({
   useProStore: { getState: () => ({ init: () => Promise.resolve() }) },
@@ -40,9 +44,10 @@ jest.mock('../services/bankHolidayRefresh', () => ({
 }));
 jest.mock('../services/notifier', () => ({ expoNotifier: {} }));
 jest.mock('../services/reminderSync', () => ({ startReminderSync: () => () => {} }));
+let mockScheme: 'light' | 'dark' = 'light';
 jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({
   __esModule: true,
-  default: () => 'light',
+  default: () => mockScheme,
 }));
 jest.mock(
   'react-native-safe-area-context',
@@ -53,6 +58,8 @@ const g = globalThis as unknown as { __DEV__: boolean };
 
 beforeEach(() => {
   mockMigrations = { success: true };
+  mockScheme = 'light';
+  mockNavigationBar.mockClear();
   mockBootstrap.mockReset();
   mockBootstrap.mockResolvedValue({});
   jest.spyOn(console, 'log').mockImplementation(() => {});
@@ -95,6 +102,21 @@ describe('Root layout start-up', () => {
     await render(<RootLayout />);
     expect(await screen.findByText('App stack')).toBeTruthy();
     expect(mockBootstrap).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the navigation-bar buttons readable across a live light/dark switch', async () => {
+    const lastStyle = () => mockNavigationBar.mock.lastCall?.[0].style;
+    const { rerender } = await render(<RootLayout />);
+    expect(await screen.findByText('App stack')).toBeTruthy();
+    expect(lastStyle()).toBe('dark');
+
+    mockScheme = 'dark';
+    await rerender(<RootLayout />);
+    expect(lastStyle()).toBe('light');
+
+    mockScheme = 'light';
+    await rerender(<RootLayout />);
+    expect(lastStyle()).toBe('dark');
   });
 
   it('shows the error screen on a migration failure; Try again runs start-up again', async () => {
