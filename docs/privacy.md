@@ -10,9 +10,9 @@ This policy explains what happens to your information when you use the ShiftPay 
 
 ## Who we are
 
-ShiftPay is made by TODO-DEVELOPER-NAME, an independent developer based in the UK ("we", "us"). For the small amount of personal data described below, we are the data controller under the UK General Data Protection Regulation (UK GDPR) and the Data Protection Act 2018.
+ShiftPay is made by Luis Santos, an independent developer based in the UK ("we", "us"). For the small amount of personal data described below, we are the data controller under the UK General Data Protection Regulation (UK GDPR) and the Data Protection Act 2018.
 
-Contact: **TODO-CONTACT-EMAIL**
+Contact: **zorrasz@protonmail.com**
 
 ## What stays on your phone
 
@@ -66,11 +66,11 @@ When you import a backup, the app reads only the file you pick, on your device.
 - To delete everything stored by the app, **uninstall ShiftPay**, or go to Android **Settings > Apps > ShiftPay > Storage > Clear storage**.
 - Backup and export files you shared are not deleted by the app; delete them wherever you saved them.
 - To cancel a subscription, use the Google Play Store (**Payments & subscriptions > Subscriptions**). Uninstalling does not cancel it.
-- To ask for your purchase record at RevenueCat to be deleted, email us at TODO-CONTACT-EMAIL. Because we do not know who you are, we may ask for your Google Play order number to find it.
+- To ask for your purchase record at RevenueCat to be deleted, email us at zorrasz@protonmail.com. Because we do not know who you are, we may ask for your Google Play order number to find it.
 
 ## Your rights
 
-Under UK GDPR you have the right to access, correct or delete your personal data, to object to or restrict its use, and to data portability. Most of your data never reaches us, so you control it directly on your phone. For anything held by RevenueCat on our behalf, contact us at TODO-CONTACT-EMAIL. If you are unhappy with how we handle your data, you can complain to the Information Commissioner's Office ([ico.org.uk](https://ico.org.uk)).
+Under UK GDPR you have the right to access, correct or delete your personal data, to object to or restrict its use, and to data portability. Most of your data never reaches us, so you control it directly on your phone. For anything held by RevenueCat on our behalf, contact us at zorrasz@protonmail.com. If you are unhappy with how we handle your data, you can complain to the Information Commissioner's Office ([ico.org.uk](https://ico.org.uk)).
 
 ## Children
 

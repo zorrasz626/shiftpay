@@ -1,6 +1,6 @@
 # ShiftPay: Google Play store listing
 
-Text to paste into the Play Console. Character counts are of the text inside each code block (Play limits in brackets). Before publishing, replace `TODO-CONTACT-EMAIL` and check the privacy policy URL works: `https://zorrasz626.github.io/shiftpay/privacy`.
+Text to paste into the Play Console. Character counts are of the text inside each code block (Play limits in brackets). Before publishing, check the privacy policy URL works: `https://zorrasz626.github.io/shiftpay/privacy`.
 
 Rules for any edit: no employer names, logos or pay agreements (SPEC §1); every figure is an estimate; no claim of accuracy, financial or tax advice.
 
@@ -70,7 +70,7 @@ shift pay calculator, rota, rota planner, overtime calculator, payslip checker, 
 
 - Category: Finance (alternative: Productivity)
 - Tags: personal finance, calendar, productivity
-- Contact email: TODO-CONTACT-EMAIL
+- Contact email: zorrasz@protonmail.com
 - Privacy policy URL: `https://zorrasz626.github.io/shiftpay/privacy`
 - Contains ads: No
 - In-app purchases: Yes (subscriptions monthly and yearly, one-time lifetime product)
@@ -83,7 +83,7 @@ Overview answers:
 |---|---|
 | Does your app collect or share any of the required user data types? | Yes (purchase data via RevenueCat) |
 | Is all user data collected by your app encrypted in transit? | Yes (RevenueCat and GOV.UK use HTTPS) |
-| Do you provide a way for users to request that their data is deleted? | Yes: email TODO-CONTACT-EMAIL (RevenueCat record); on-device data is removed by uninstalling or clearing storage |
+| Do you provide a way for users to request that their data is deleted? | Yes: email zorrasz@protonmail.com (RevenueCat record); on-device data is removed by uninstalling or clearing storage |
 | Account creation | The app does not let users create an account |
 
 Data types (anything not listed: not collected, not shared):
