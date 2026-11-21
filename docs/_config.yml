@@ -2,3 +2,4 @@
 exclude:
   - store-listing.md
   - RELEASE.md
+  - store/
