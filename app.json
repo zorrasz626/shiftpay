@@ -44,7 +44,10 @@
           "icon": "./assets/images/notification-icon.png",
           "color": "#F5B700"
         }
-      ]
+      ],
+      "expo-sharing",
+      "expo-status-bar",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
