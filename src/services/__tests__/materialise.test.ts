@@ -319,11 +319,21 @@ describe('materialiseShifts', () => {
     await updateShift(db, modified);
 
     await deleteRotaPattern(db, 'pat-1');
+    // The FK (ON DELETE SET NULL) keeps every row but drops its pattern id.
+    const orphaned = await allShifts(db);
+    expect(orphaned).toHaveLength(WINDOW_DAYS);
+    expect(orphaned.every((r) => r.patternId === undefined && r.source === 'pattern')).toBe(true);
+
     expect(await materialiseShifts(db, TODAY)).toEqual({ inserted: 0, updated: 0, removed: 120 });
 
     const rows = await allShifts(db);
     expect(rows).toHaveLength(WINDOW_DAYS - 120);
-    expect(rows.filter((r) => r.date >= TODAY)).toEqual([modified]);
+    const { patternId: _patternId, ...modifiedOrphan } = modified;
+    expect(rows.filter((r) => r.date >= TODAY)).toEqual([modifiedOrphan]);
+    expect(rows.filter((r) => r.date < TODAY)).toHaveLength(WINDOW_DAYS - 121);
+
+    // Idempotent: nothing left to remove.
+    expect(await materialiseShifts(db, TODAY)).toEqual({ inserted: 0, updated: 0, removed: 0 });
   });
 
   it('rolling the window by 7 days inserts only the 7 new far-end days', async () => {

@@ -115,11 +115,13 @@ export function planMaterialisation(
   }
 
   for (const stored of existing) {
-    if (stored.patternId === undefined || !inWindow(stored.date, window)) continue;
+    // A 'pattern' row with no patternId lost its pattern (the FK set it to null).
+    const isPatternRow = stored.patternId !== undefined || stored.source === 'pattern';
+    if (!isPatternRow || !inWindow(stored.date, window)) continue;
     if (stored.userModified) continue; // Rule 2
     if (stored.date < today) continue; // Rule 5: history stays as is
     const gen = generatedById.get(stored.id);
-    if (gen === undefined || !knownPatternIds.has(stored.patternId)) {
+    if (gen === undefined || stored.patternId === undefined || !knownPatternIds.has(stored.patternId)) {
       // Rule 4: cycle day no longer generated, or pattern deleted.
       plan.remove.push(stored.id);
     } else if (!sameGeneratedValues(stored, gen)) {

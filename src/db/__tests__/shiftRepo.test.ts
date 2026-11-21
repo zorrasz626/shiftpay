@@ -3,6 +3,7 @@
  */
 import { type AppDb, type StoredJob, createJob, deleteJob } from '../jobRepo';
 import { createPayslip, getPayslip, listPayslips } from '../payslipRepo';
+import { createRotaPattern } from '../rotaRepo';
 import {
   type StoredShift,
   createShift,
@@ -81,6 +82,14 @@ describe('shiftRepo', () => {
     db = createTestDb();
     await createJob(db, baseJob);
     await createJob(db, { ...baseJob, id: 'job-2', name: 'Bar' });
+    // `full.patternId` must reference a real pattern (shifts.pattern_id FK).
+    await createRotaPattern(db, {
+      id: 'pat-1',
+      jobId: 'job-1',
+      cycleLengthDays: 1,
+      startDate: '2026-01-01',
+      days: ['OFF'],
+    });
   });
 
   it('round-trips every field, with and without optional ones', async () => {

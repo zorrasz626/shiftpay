@@ -5,8 +5,9 @@
  *
  * Re-runnable (the user may go Back and finish again): the job's existing
  * templates, patterns and premium rules are deleted first, together with the
- * unmodified shifts generated from those patterns (`shifts.pattern_id` has no
- * foreign key, and materialisation keeps past pattern rows as history).
+ * unmodified shifts generated from those patterns (they must go before the
+ * patterns: the `shifts.pattern_id` foreign key nulls it on pattern delete, and
+ * materialisation keeps past pattern rows as history).
  * "today" is passed in (a Europe/London LocalDate).
  */
 import { and, eq, inArray } from 'drizzle-orm';

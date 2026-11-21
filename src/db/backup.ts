@@ -15,8 +15,11 @@ import * as schema from './schema';
 export const BACKUP_APP = 'shiftpay';
 export const BACKUP_FORMAT_VERSION = 1;
 /** Number of applied Drizzle migrations (`drizzle/meta/_journal.json` entries); a test keeps it in sync. */
-export const SCHEMA_VERSION = 2;
-/** Oldest schema an import accepts: v1 -> v2 added only the index `shifts_date_idx`, same tables. */
+export const SCHEMA_VERSION = 3;
+/**
+ * Oldest schema an import accepts. v1 -> v2 added only the index `shifts_date_idx`;
+ * v2 -> v3 added the `shifts.pattern_id` FK (dangling ids are imported as null). Same tables.
+ */
 export const MIN_IMPORT_SCHEMA_VERSION = 1;
 
 /** Every table, parents before children (the order an import must insert in). */

@@ -149,8 +149,11 @@ export const shifts = sqliteTable(
     status: text('status', { enum: SHIFT_STATUSES }).notNull(),
     overtimeFlag: integer('overtime_flag', { mode: 'boolean' }).notNull(),
     notes: text('notes'),
-    /** Pattern the shift was generated from; no FK, the pattern may be deleted. */
-    patternId: text('pattern_id'),
+    /**
+     * Pattern the shift was generated from. Deleting the pattern sets this to
+     * null (history and user edits are kept; materialise prunes the future).
+     */
+    patternId: text('pattern_id').references(() => rotaPatterns.id, { onDelete: 'set null' }),
     /** Set on any manual/status edit so regeneration never overwrites it. */
     userModified: integer('user_modified', { mode: 'boolean' }).notNull().default(false),
   },
@@ -158,6 +161,8 @@ export const shifts = sqliteTable(
     index('shifts_job_id_date_idx').on(t.jobId, t.date),
     // Date-range reads across all jobs (the shifts store's window).
     index('shifts_date_idx').on(t.date),
+    // ON DELETE SET NULL looks up child rows by pattern_id.
+    index('shifts_pattern_id_idx').on(t.patternId),
   ],
 );
 

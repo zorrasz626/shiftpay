@@ -9,15 +9,13 @@ import { z } from 'zod';
 
 import { BANK_HOLIDAY_REGION_IDS } from '../config/bankHolidayRegions';
 import type { AppDb } from '../db/jobRepo';
+import { BANK_HOLIDAYS_CHECKED_KEY } from '../db/settingsKeys';
 import { getSetting, setSetting } from '../db/settingsRepo';
 import { instantToLocal, minutesBetween } from '../engine/time';
 import type { BankHolidayData, BankHolidayRegion, IsoInstant, LocalDate } from '../engine/types';
 import { BANK_HOLIDAYS_CACHE_KEY, localDateSchema, useBankHolidaysStore } from '../store/bankHolidaysStore';
 
 export const GOV_UK_BANK_HOLIDAYS_URL = 'https://www.gov.uk/bank-holidays.json';
-
-/** Settings key: ISO instant of the last successful download. */
-export const BANK_HOLIDAYS_CHECKED_KEY = 'bankHolidays.lastCheckedAt';
 
 export const REFRESH_INTERVAL_MINUTES = 7 * 24 * 60;
 const FETCH_TIMEOUT_MS = 10_000;

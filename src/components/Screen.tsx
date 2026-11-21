@@ -3,6 +3,7 @@ import { KeyboardAvoidingView, ScrollView, StyleSheet, Text, View } from 'react-
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '../theme/useTheme';
+import { useKeyboardVisible } from './useKeyboardVisible';
 
 export type ScreenProps = {
   readonly children?: ReactNode;
@@ -13,7 +14,8 @@ export type ScreenProps = {
   readonly footer?: ReactNode;
   /**
    * Pad the footer by the bottom safe-area inset. Use on screens outside the
-   * tabs (the tab bar supplies the inset there), e.g. onboarding.
+   * tabs (the tab bar supplies the inset there), e.g. onboarding. Dropped
+   * while the keyboard is up: the keyboard already covers the inset.
    */
   readonly bottomInset?: boolean;
 };
@@ -28,7 +30,9 @@ export function Screen({
 }: ScreenProps) {
   const { colors, typography, spacing } = useTheme();
   const insets = useSafeAreaInsets();
-  const footerBottom = spacing.gutter + (bottomInset ? insets.bottom : 0);
+  const keyboardVisible = useKeyboardVisible();
+  // The KeyboardAvoidingView already lifts the footer onto the keyboard's top edge.
+  const footerBottom = spacing.gutter + (bottomInset && !keyboardVisible ? insets.bottom : 0);
   const gutter = { padding: spacing.gutter };
 
   const header = title !== undefined && (

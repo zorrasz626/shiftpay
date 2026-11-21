@@ -19,7 +19,7 @@ import {
   SCHEMA_VERSION,
 } from './backup';
 import type { RotaDay } from '../engine/types';
-import { BANK_HOLIDAYS_CHECKED_KEY } from '../services/bankHolidayRefresh';
+import { BANK_HOLIDAYS_CHECKED_KEY } from './settingsKeys';
 import type { AppDb } from './jobRepo';
 import * as schema from './schema';
 
@@ -173,6 +173,8 @@ interface ForeignKey {
   column: string;
   parent: BackupTableName;
   parentColumn: string;
+  /** ON DELETE SET NULL: a dangling value is imported as null. */
+  setNull: boolean;
 }
 
 /** Every single-column foreign key in the schema, read from Drizzle's metadata. */
@@ -189,6 +191,7 @@ function foreignKeys(): ForeignKey[] {
         column: columnKey(table, ref.columns[0]),
         parent,
         parentColumn: columnKey(ref.foreignTable, ref.foreignColumns[0]),
+        setNull: fk.onDelete === 'set null',
       };
     });
   });
@@ -200,6 +203,23 @@ const PRIMARY_KEYS = Object.fromEntries(
 const FOREIGN_KEYS = foreignKeys();
 
 type LooseTables = Record<BackupTableName, Record<string, unknown>[]>;
+
+/**
+ * Older backups were written before `shifts.pattern_id` had a foreign key, so
+ * they may reference a deleted pattern. For every ON DELETE SET NULL key, a
+ * value with no parent row becomes null, as SQLite would have made it.
+ */
+function nullDanglingRefs<T extends LooseTables>(tables: T): T {
+  const out: LooseTables = { ...tables };
+  for (const fk of FOREIGN_KEYS) {
+    if (!fk.setNull) continue;
+    const parentKeys = new Set(out[fk.parent].map((row) => row[fk.parentColumn]));
+    out[fk.table] = out[fk.table].map((row) =>
+      row[fk.column] === null || parentKeys.has(row[fk.column]) ? row : { ...row, [fk.column]: null },
+    );
+  }
+  return out as T;
+}
 
 /** Cross-row checks zod objects can't express: unique PKs, FKs, CHECKs, JSON settings. */
 function checkTables(tables: LooseTables, ctx: z.RefinementCtx): void {
@@ -218,7 +238,8 @@ function checkTables(tables: LooseTables, ctx: z.RefinementCtx): void {
   for (const fk of FOREIGN_KEYS) {
     const parentKeys = new Set(tables[fk.parent].map((row) => row[fk.parentColumn]));
     tables[fk.table].forEach((row, i) => {
-      if (!parentKeys.has(row[fk.column]))
+      // Null only passes zod on nullable columns: no reference to check.
+      if (row[fk.column] !== null && !parentKeys.has(row[fk.column]))
         issue(`Missing ${fk.parent} row`, [fk.table, i, fk.column]);
     });
   }
@@ -271,6 +292,7 @@ const tablesSchema = z
     settings: z.array(BACKUP_ROW_SCHEMAS.settings),
   } satisfies Record<BackupTableName, z.ZodTypeAny>)
   .strict()
+  .transform((tables) => nullDanglingRefs(tables))
   .superRefine((tables, ctx) => checkTables(tables, ctx));
 
 const backupSchema = z

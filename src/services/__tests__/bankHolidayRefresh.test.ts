@@ -2,12 +2,12 @@
  * @jest-environment node
  */
 import type { AppDb } from '../../db/jobRepo';
+import { BANK_HOLIDAYS_CHECKED_KEY } from '../../db/settingsKeys';
 import { getSetting, setSetting } from '../../db/settingsRepo';
 import { createTestDb } from '../../db/testDb';
 import type { BankHolidayData } from '../../engine/types';
 import { BANK_HOLIDAYS_CACHE_KEY, useBankHolidaysStore } from '../../store/bankHolidaysStore';
 import {
-  BANK_HOLIDAYS_CHECKED_KEY,
   GOV_UK_BANK_HOLIDAYS_URL,
   govUkFetcher,
   parseGovUkBankHolidays,

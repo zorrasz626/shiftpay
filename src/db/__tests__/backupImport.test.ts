@@ -18,7 +18,7 @@ import { type AppDb, type StoredJob, createJob, createPremiumRule } from '../job
 import { createPayslip } from '../payslipRepo';
 import { createRotaPattern, createShiftTemplate } from '../rotaRepo';
 import * as schema from '../schema';
-import { BANK_HOLIDAYS_CHECKED_KEY } from '../../services/bankHolidayRefresh';
+import { BANK_HOLIDAYS_CHECKED_KEY } from '../settingsKeys';
 import { BANK_HOLIDAYS_CACHE_KEY } from '../../store/bankHolidaysStore';
 import { getSetting, setSetting } from '../settingsRepo';
 import { createShift } from '../shiftRepo';
@@ -423,6 +423,36 @@ describe('importBackup', () => {
     const target = createTestDb();
     await importBackup(target, parsed.backup);
     expect(await exportBackup(target, EXPORTED_AT)).toEqual(file);
+  });
+
+  it.each([1, 2])(
+    'imports a schema %i file whose shift points at a deleted pattern, with patternId null',
+    async (schemaVersion) => {
+      const file = await seededFile();
+      const old = mutable({ ...file, schemaVersion });
+      const shiftIndex = old.tables.shifts.findIndex((s) => s.id === 's-rota');
+      old.tables.shifts[shiftIndex].patternId = 'pat-deleted';
+      const parsed = parseBackup(old);
+      if (!parsed.ok) throw new Error(parsed.reason);
+      expect(parsed.backup.tables.shifts[shiftIndex].patternId).toBeNull();
+
+      const target = createTestDb();
+      await importBackup(target, parsed.backup);
+      const after = await exportBackup(target, EXPORTED_AT);
+      expect(after.tables.shifts[shiftIndex]).toEqual({ ...file.tables.shifts[shiftIndex], patternId: null });
+      expect({ ...after.tables, shifts: [] }).toEqual({ ...file.tables, shifts: [] });
+    },
+  );
+
+  it('keeps a valid shift patternId and a null one as they are', async () => {
+    const file = await seededFile();
+    const parsed = parseBackup(file);
+    if (!parsed.ok) throw new Error(parsed.reason);
+    const patternIds = parsed.backup.tables.shifts.map((s) => [s.id, s.patternId]);
+    expect(patternIds).toEqual([
+      ['s-manual', null],
+      ['s-rota', 'pat-1'],
+    ]);
   });
 
   it('imports an empty backup by clearing every table', async () => {

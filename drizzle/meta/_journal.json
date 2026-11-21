@@ -15,6 +15,13 @@
       "when": 1793550936893,
       "tag": "0001_square_mongoose",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1795250185339,
+      "tag": "0002_brown_sally_floyd",
+      "breakpoints": true
     }
   ]
 }
