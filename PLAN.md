@@ -127,7 +127,7 @@ Run the `frontend-design` skill once in 3.1 to set the visual direction; later s
 - **Now:** check the "ShiftPay" name on Play / UK trademark search.
 - **Now:** you already have a personal Play account (from DriverBooks), so the 12-testers / 14-days rule applies. Recruit testers early; the DriverBooks testers may be reusable.
 - **Phase 6:** create the RevenueCat project and Play subscription/lifetime products.
-- **Before release:** verify every `TODO-VERIFY` tax value and the 12.07% holiday rule on gov.uk; check the current target API level in the Play Console.
+- **Before release:** verify every `TODO-VERIFY` tax value and the 12.07% holiday rule on gov.uk (done 2026-11-21 for 2026/27, sources in `src/config/taxYears.ts` and `src/engine/holiday.ts`); check the current target API level in the Play Console.
 - Screenshots, icon, feature graphic, Data safety form, content rating.
 
 ## Totals

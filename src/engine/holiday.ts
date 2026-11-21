@@ -18,7 +18,12 @@ import { clearNoise } from './money';
 import { addLocalDays, localDaysBetween, minutesBetween } from './time';
 import type { HolidaySummary, Job, LocalDate, Shift } from './types';
 
-/** Statutory accrual rate for irregular-hours workers (5.6 weeks / 46.4 weeks). */
+/**
+ * Statutory accrual rate for irregular-hours workers (5.6 weeks / 46.4 weeks).
+ * Checked 2026-11-21: https://www.gov.uk/holiday-entitlement-rights/calculate-leave-entitlement
+ * (leave years from 1 April 2024). gov.uk rounds each pay period's accrual to
+ * the nearest hour; this estimate accrues continuously, unrounded.
+ */
 export const ACCRUAL_RATE = 0.1207;
 
 /** The anniversary of `start` in `year`, clamped to the month's length (29 Feb -> 28 Feb). */
